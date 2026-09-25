@@ -301,7 +301,7 @@ def search_jobs(
 ) -> dict:
     """Run a single job search via JobSpy and store results in DB."""
     if sites is None:
-        sites = ["indeed", "linkedin", "zip_recruiter"]
+        sites = ["indeed", "linkedin", "glassdoor", "google"]
 
     proxy_config = parse_proxy(proxy) if proxy else None
 
@@ -369,7 +369,7 @@ def _full_crawl(
 ) -> dict:
     """Run all search queries from search config across all locations."""
     if sites is None:
-        sites = ["indeed", "linkedin", "zip_recruiter"]
+        sites = ["indeed", "linkedin", "glassdoor", "google"]
 
     # Build search combinations from config
     queries = search_cfg.get("queries", [])
@@ -465,7 +465,7 @@ def run_discovery(cfg: dict | None = None) -> dict:
     # Support both top-level 'sites' key and 'defaults.site_name'
     sites = cfg.get("sites") or defaults.get("site_name") or ["indeed", "linkedin"]
     # Filter to only jobspy-supported sites
-    SUPPORTED_SITES = {"indeed", "linkedin", "glassdoor", "zip_recruiter", "google"}
+    SUPPORTED_SITES = {"indeed", "linkedin", "glassdoor", "google"}
     sites = [s for s in sites if s in SUPPORTED_SITES]
     results_per_site = defaults.get("results_per_site", 100)
     hours_old = defaults.get("hours_old", 72)

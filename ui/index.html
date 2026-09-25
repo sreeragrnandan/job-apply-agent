@@ -52,7 +52,7 @@
 
     .layout {
       position:relative; z-index:1;
-      max-width: 1080px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 28px 24px 72px;
     }
@@ -221,6 +221,25 @@
       transition:all .15s;
     }
     .term-clr:hover { color:var(--text); border-color:rgba(255,255,255,.2); }
+    .term-actions {
+      display:flex; align-items:center; gap:8px;
+    }
+    .term-running-pill {
+      display:none; align-items:center; gap:6px;
+      padding:3px 10px; border-radius:20px;
+      font-size:0.72rem; font-weight:500;
+      color:var(--text);
+      background:var(--bg2); border:1px solid var(--border);
+      user-select:none;
+    }
+    .term-running-pill.active {
+      display:inline-flex;
+    }
+    .term-running-pill .dot {
+      width:7px; height:7px; border-radius:50%;
+      background:var(--accent); box-shadow:0 0 8px var(--accent);
+      animation:pulse 1s infinite;
+    }
     .term-body {
       height:300px; overflow-y:auto; padding:16px;
       font-family:'JetBrains Mono','Consolas',monospace;
@@ -237,6 +256,430 @@
     .ti { color:var(--text2); }
     .tm { color:var(--muted); }
     .td { color:#c9d1d9; }
+
+    /* ── Dashboard Header & Refresh ── */
+    .btn-refresh {
+      padding: 5px 12px; border-radius: 20px;
+      font-size: 0.73rem; font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--bg3); color: var(--text2);
+      cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-refresh:hover {
+      border-color: var(--accent); color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .btn-refresh.spinning .rf-icon {
+      display: inline-block; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* ── KPI Metrics Grid ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 960px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 14px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all .2s;
+    }
+    .kpi-card:hover {
+      background: var(--card-h);
+      border-color: var(--border-a);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    }
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0; transition: opacity .25s;
+    }
+    .kpi-card:hover::before { opacity: 1; }
+    .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .kpi-lbl { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .kpi-icon { font-size: 1.1rem; line-height: 1; opacity: 0.85; }
+    .kpi-val { font-size: 1.6rem; font-weight: 700; color: #fff; letter-spacing: -0.03em; margin-bottom: 3px; }
+    .kpi-sub { font-size: 0.68rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── Navigation Tabs ── */
+    .nav-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 24px;
+      padding: 4px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    .nav-tab {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.8rem; font-weight: 500; font-family: inherit;
+      cursor: pointer; transition: all .2s;
+      white-space: nowrap; user-select: none;
+    }
+    .nav-tab:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.04);
+    }
+    .nav-tab.active {
+      background: var(--bg3);
+      color: #fff;
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .tab-cnt {
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.08);
+      color: var(--text2);
+    }
+    .nav-tab.active .tab-cnt {
+      background: rgba(0, 212, 255, 0.2);
+      color: var(--accent);
+    }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; animation: fadeIn .2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Jobs Filters & Search ── */
+    .filter-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+    }
+    .search-input-wrap {
+      flex: 1; min-width: 220px;
+      position: relative; display: flex; align-items: center;
+    }
+    .search-icon {
+      position: absolute; left: 12px; font-size: 0.85rem; color: var(--muted); pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 8px 12px 8px 34px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.78rem; font-family: inherit;
+      outline: none; transition: border-color .2s;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .filter-select {
+      padding: 8px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.78rem; font-family: inherit;
+      outline: none; cursor: pointer; transition: border-color .2s;
+    }
+    .filter-select:focus { border-color: var(--accent); }
+    .btn-reset {
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.75rem; font-family: inherit;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn-reset:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+
+    /* ── Jobs List / Table ── */
+    .jobs-summary-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; font-size: 0.74rem; color: var(--muted);
+    }
+    .jobs-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .job-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      transition: all .2s;
+    }
+    .job-card:hover {
+      background: var(--card-h);
+      border-color: rgba(255,255,255,0.15);
+      transform: translateX(2px);
+    }
+    .job-left {
+      display: flex; align-items: flex-start; gap: 14px; flex: 1; min-width: 0;
+    }
+    .site-pill {
+      padding: 3px 9px; border-radius: 6px;
+      font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; white-space: nowrap; flex-shrink: 0;
+    }
+    .site-linkedin   { background: rgba(10,102,194,0.18); color: #388bfd; border: 1px solid rgba(10,102,194,0.35); }
+    .site-indeed     { background: rgba(33,100,243,0.18); color: #58a6ff; border: 1px solid rgba(33,100,243,0.35); }
+    .site-glassdoor  { background: rgba(12,170,65,0.18); color: #3fb950; border: 1px solid rgba(12,170,65,0.35); }
+    .site-google     { background: rgba(234,67,53,0.18); color: #f85149; border: 1px solid rgba(234,67,53,0.35); }
+    .site-default    { background: rgba(255,255,255,0.08); color: var(--text2); border: 1px solid var(--border); }
+
+    .job-info { min-width: 0; flex: 1; }
+    .job-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .job-title {
+      font-size: 0.88rem; font-weight: 600; color: #fff;
+      text-decoration: none; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .job-title:hover { color: var(--accent); }
+    .job-meta {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .job-meta-item { display: inline-flex; align-items: center; gap: 4px; }
+
+    .job-right {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .badge-score {
+      padding: 4px 10px; border-radius: 12px;
+      font-size: 0.75rem; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .score-high { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.35); box-shadow: 0 0 10px rgba(63,185,80,0.2); }
+    .score-mid  { background: rgba(210,153,34,0.15); color: #d29922; border: 1px solid rgba(210,153,34,0.35); }
+    .score-low  { background: rgba(248,81,73,0.12); color: #f85149; border: 1px solid rgba(248,81,73,0.25); }
+    .score-none { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); }
+
+    .tag-pill {
+      padding: 2px 7px; border-radius: 4px; font-size: 0.65rem; font-weight: 500;
+      background: var(--bg3); border: 1px solid var(--border); color: var(--muted);
+    }
+    .tag-tailored { background: rgba(163,113,247,0.12); border-color: rgba(163,113,247,0.3); color: #d2a8ff; }
+    .tag-cover    { background: rgba(0,212,255,0.10); border-color: rgba(0,212,255,0.28); color: var(--accent); }
+    .tag-applied  { background: rgba(63,185,80,0.15); border-color: rgba(63,185,80,0.35); color: var(--ok); }
+    .tag-inprog   { background: rgba(210,153,34,0.15); border-color: rgba(210,153,34,0.35); color: var(--warn); }
+
+    .btn-inspect {
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 0.72rem; font-family: inherit; font-weight: 500;
+      border: 1px solid var(--border); background: var(--bg3);
+      color: var(--text2); cursor: pointer; transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn-inspect:hover {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-dim);
+    }
+
+    /* ── Applied / Tailored Grid ── */
+    .applied-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px;
+    }
+    .app-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 18px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      transition: all .2s;
+    }
+    .app-card:hover {
+      background: var(--card-h); border-color: var(--border-a); transform: translateY(-2px);
+    }
+    .app-card-top { margin-bottom: 12px; }
+    .app-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .app-card-title { font-size: 0.95rem; font-weight: 600; color: #fff; line-height: 1.35; }
+    .app-card-meta { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--muted); margin-bottom: 12px; }
+    .app-preview-box {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; line-height: 1.5;
+      color: var(--text2); max-height: 75px; overflow: hidden;
+      margin-bottom: 14px; position: relative;
+    }
+    .app-preview-box::after {
+      content:''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px;
+      background: linear-gradient(transparent, var(--bg3)); pointer-events: none;
+    }
+    .app-actions { display: flex; gap: 8px; }
+    .app-btn {
+      flex: 1; padding: 7px 10px; border-radius: 6px;
+      font-size: 0.72rem; font-family: inherit; font-weight: 500;
+      border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+      cursor: pointer; transition: all .15s; text-align: center;
+    }
+    .app-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .app-btn-apply {
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,119,255,0.2));
+      border-color: rgba(0,212,255,0.4); color: #fff; font-weight: 600;
+    }
+    .app-btn-apply:hover {
+      background: linear-gradient(135deg, #00d4ff, #0077ff); color: #000;
+    }
+
+    /* ── Analytics & Funnel ── */
+    .analytics-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+    }
+    @media (max-width: 840px) {
+      .analytics-grid { grid-template-columns: 1fr; }
+    }
+    .analytics-box {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 18px 20px;
+    }
+    .analytics-box-title {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;
+    }
+    
+    /* Funnel items */
+    .funnel-item { margin-bottom: 14px; }
+    .funnel-meta { display: flex; justify-content: space-between; font-size: 0.74rem; margin-bottom: 5px; }
+    .funnel-label { font-weight: 500; color: var(--text); }
+    .funnel-val { font-weight: 600; font-family: 'JetBrains Mono', monospace; color: var(--text2); }
+    .funnel-track {
+      height: 8px; border-radius: 4px; background: var(--bg3); overflow: hidden;
+    }
+    .funnel-fill {
+      height: 100%; border-radius: 4px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Histogram chart */
+    .hist-chart {
+      display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 10px;
+    }
+    .hist-col {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end;
+    }
+    .hist-bar-wrap {
+      width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 120px;
+    }
+    .hist-bar {
+      width: 100%; max-width: 28px; border-radius: 4px 4px 0 0;
+      background: linear-gradient(180deg, var(--accent), rgba(0,212,255,0.3));
+      transition: height 0.5s ease; min-height: 2px;
+    }
+    .hist-bar.high { background: linear-gradient(180deg, #3fb950, rgba(63,185,80,0.3)); }
+    .hist-cnt { font-size: 0.65rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .hist-lbl { font-size: 0.7rem; color: var(--text2); font-weight: 500; }
+
+    /* Sources Table */
+    .sources-table {
+      width: 100%; border-collapse: collapse; font-size: 0.75rem;
+    }
+    .sources-table th {
+      text-align: left; padding: 8px 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500;
+    }
+    .sources-table td {
+      padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text2);
+    }
+    .sources-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* Logs list */
+    .logs-list {
+      display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto;
+    }
+    .log-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 12px; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; font-size: 0.72rem; cursor: pointer; transition: all .15s;
+    }
+    .log-item:hover { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+    .log-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; animation: fadeIn .2s;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-card {
+      background: #0d1117; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--r); width: 100%; max-width: 820px;
+      max-height: 88vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow: hidden;
+    }
+    .modal-header {
+      padding: 18px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+      background: var(--bg3);
+    }
+    .modal-title { font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 4px; line-height: 1.3; }
+    .modal-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 0.75rem; color: var(--muted); }
+    .modal-close {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .modal-close:hover { color: #fff; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); }
+    .modal-nav {
+      display: flex; gap: 6px; padding: 10px 24px;
+      background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);
+    }
+    .modal-tab-btn {
+      padding: 6px 14px; border-radius: 6px; border: 1px solid transparent;
+      background: transparent; color: var(--muted); font-size: 0.76rem;
+      font-weight: 500; font-family: inherit; cursor: pointer; transition: all .15s;
+    }
+    .modal-tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .modal-tab-btn.active {
+      background: var(--bg3); color: var(--accent); border-color: var(--border);
+    }
+    .modal-body {
+      padding: 20px 24px; overflow-y: auto; flex: 1;
+    }
+    .modal-text-box {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.65;
+      color: #e6edf3; white-space: pre-wrap; word-break: break-word;
+      user-select: text; max-height: 480px; overflow-y: auto;
+    }
+    .modal-footer {
+      padding: 12px 24px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg3);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+      padding: 10px 18px; border-radius: 8px;
+      background: var(--bg3); border: 1px solid var(--border-a);
+      color: var(--text); font-size: 0.8rem; font-weight: 500;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      display: none; animation: fadeIn .2s;
+    }
+    .toast.show { display: block; }
   </style>
 </head>
 <body>
@@ -252,6 +695,9 @@
       </div>
     </div>
     <div class="hdr-right">
+      <button class="btn-refresh" id="btn-refresh" onclick="refreshAll()" title="Refresh Dashboard Data">
+        <span class="rf-icon">↻</span> Refresh
+      </button>
       <span id="env-badge" class="badge">Checking config…</span>
       <div id="status-pill" class="status-pill">
         <div class="dot" id="dot"></div>
@@ -260,54 +706,325 @@
     </div>
   </header>
 
-  <!-- Pipeline stages -->
-  <div class="sec">
-    <div class="sec-title">Pipeline Stages</div>
-    <div class="stages" id="stages"></div>
+  <!-- KPI Metrics Grid -->
+  <div class="kpi-grid">
+    <div class="kpi-card" onclick="switchTab('jobs')">
+      <div class="kpi-top">
+        <span class="kpi-lbl">Discovered Jobs</span>
+        <span class="kpi-icon">🔍</span>
+      </div>
+      <div class="kpi-val" id="kpi-total">--</div>
+      <div class="kpi-sub" id="kpi-sites">All job boards</div>
+    </div>
+    <div class="kpi-card" onclick="switchTab('jobs'); filterByStage('enriched')">
+      <div class="kpi-top">
+        <span class="kpi-lbl">Enriched JDs</span>
+        <span class="kpi-icon">📋</span>
+      </div>
+      <div class="kpi-val" id="kpi-enriched">--</div>
+      <div class="kpi-sub" id="kpi-enriched-sub">Full description fetched</div>
+    </div>
+    <div class="kpi-card" onclick="switchTab('jobs'); filterByScore(7)">
+      <div class="kpi-top">
+        <span class="kpi-lbl">AI Scored</span>
+        <span class="kpi-icon">⭐</span>
+      </div>
+      <div class="kpi-val" id="kpi-scored">--</div>
+      <div class="kpi-sub" id="kpi-high-fit">-- High Fit (≥7/10)</div>
+    </div>
+    <div class="kpi-card" onclick="switchTab('applied')">
+      <div class="kpi-top">
+        <span class="kpi-lbl">Tailored Resumes</span>
+        <span class="kpi-icon">✂️</span>
+      </div>
+      <div class="kpi-val" id="kpi-tailored">--</div>
+      <div class="kpi-sub" id="kpi-cover">-- Cover Letters</div>
+    </div>
+    <div class="kpi-card" onclick="switchTab('applied')">
+      <div class="kpi-top">
+        <span class="kpi-lbl">Auto-Applied</span>
+        <span class="kpi-icon">🚀</span>
+      </div>
+      <div class="kpi-val" id="kpi-applied">--</div>
+      <div class="kpi-sub" id="kpi-ready">-- Ready to apply</div>
+    </div>
   </div>
 
-  <!-- Quick actions -->
-  <div class="sec">
-    <div class="sec-title">Quick Actions</div>
-    <div class="actions">
-      <button class="btn btn-primary" id="b-run"    onclick="runAll()">▶ Run All Stages</button>
-      <button class="btn btn-sec"     id="b-apply"  onclick="doApply()">🤖 Auto-Apply</button>
-      <button class="btn btn-sec"     id="b-doc"    onclick="doDoctor()">🩺 Doctor Check</button>
-      <button class="btn btn-sec"     id="b-status" onclick="doStatus()">📊 Status</button>
-      <button class="btn btn-danger"  id="b-stop"   onclick="doStop()" disabled>⏹ Stop</button>
-    </div>
-    <div class="opts">
-      <span class="opt-lbl">Workers</span>
-      <input class="opt-num" type="number" id="workers"   value="1" min="1" max="8" />
-      <div class="opt-sep"></div>
-      <label class="opt-chk"><input type="checkbox" id="dry-run"  /> Dry run</label>
-      <div class="opt-sep"></div>
-      <label class="opt-chk"><input type="checkbox" id="headless" /> Headless browser</label>
-      <div class="opt-sep"></div>
-      <span class="opt-lbl">Min score</span>
-      <input class="opt-num" type="number" id="min-score" value="7" min="1" max="10" />
-    </div>
-  </div>
+  <!-- Navigation Tabs -->
+  <nav class="nav-bar">
+    <button class="nav-tab active" id="tab-btn-pipeline" onclick="switchTab('pipeline')">
+      <span class="tab-emoji">⚡</span> Pipeline & Terminal
+    </button>
+    <button class="nav-tab" id="tab-btn-jobs" onclick="switchTab('jobs')">
+      <span class="tab-emoji">📋</span> Scraped Jobs <span class="tab-cnt" id="cnt-jobs">0</span>
+    </button>
+    <button class="nav-tab" id="tab-btn-applied" onclick="switchTab('applied')">
+      <span class="tab-emoji">🎯</span> Applications & Tailored <span class="tab-cnt" id="cnt-applied">0</span>
+    </button>
+    <button class="nav-tab" id="tab-btn-analytics" onclick="switchTab('analytics')">
+      <span class="tab-emoji">📊</span> Analytics & History
+    </button>
+  </nav>
 
-  <!-- Terminal -->
-  <div class="sec">
-    <div class="sec-title">Live Output</div>
-    <div class="term-wrap">
-      <div class="term-hdr">
-        <div class="term-title">
-          <div class="tdots">
-            <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+  <!-- TAB 1: Pipeline & Terminal -->
+  <div id="pane-pipeline" class="tab-pane active">
+    <!-- Pipeline stages -->
+    <div class="sec">
+      <div class="sec-title">Pipeline Stages</div>
+      <div class="stages" id="stages"></div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="sec">
+      <div class="sec-title">Quick Actions</div>
+      <div class="actions">
+        <button class="btn btn-primary" id="b-run"    onclick="runAll()">▶ Run All Stages</button>
+        <button class="btn btn-sec"     id="b-apply"  onclick="doApply()">🤖 Auto-Apply</button>
+        <button class="btn btn-sec"     id="b-doc"    onclick="doDoctor()">🩺 Doctor Check</button>
+        <button class="btn btn-sec"     id="b-status" onclick="doStatus()">📊 Status</button>
+        <button class="btn btn-danger"  id="b-stop"   onclick="doStop()" disabled>⏹ Stop</button>
+      </div>
+      <div class="opts">
+        <span class="opt-lbl">Workers</span>
+        <input class="opt-num" type="number" id="workers"   value="1" min="1" max="8" />
+        <div class="opt-sep"></div>
+        <label class="opt-chk"><input type="checkbox" id="dry-run"  /> Dry run</label>
+        <div class="opt-sep"></div>
+        <label class="opt-chk"><input type="checkbox" id="headless" /> Headless browser</label>
+        <div class="opt-sep"></div>
+        <span class="opt-lbl">Min score</span>
+        <input class="opt-num" type="number" id="min-score" value="7" min="1" max="10" />
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="sec">
+      <div class="sec-title">Live Output</div>
+      <div class="term-wrap">
+        <div class="term-hdr">
+          <div class="term-title">
+            <div class="tdots">
+              <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+            </div>
+            applypilot — terminal
           </div>
-          applypilot — terminal
+          <div class="term-actions">
+            <div id="term-running" class="term-running-pill">
+              <div class="dot"></div>
+              <span>Running...</span>
+            </div>
+            <button class="term-clr" onclick="clearTerm()">Clear</button>
+          </div>
         </div>
-        <button class="term-clr" onclick="clearTerm()">Clear</button>
-      </div>
-      <div class="term-body" id="term">
-        <div class="tl tm">ApplyPilot UI ready. Choose an action above.</div>
-        <div class="tl tm">──────────────────────────────────────────────</div>
+        <div class="term-body" id="term">
+          <div class="tl tm">ApplyPilot UI ready. Choose an action above.</div>
+          <div class="tl tm">──────────────────────────────────────────────</div>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- TAB 2: Scraped Jobs Explorer -->
+  <div id="pane-jobs" class="tab-pane">
+    <div class="filter-bar">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="jobs-search" placeholder="Search by job title, description, skills, location…" oninput="debounceSearch()" />
+      </div>
+      <select class="filter-select" id="filter-site" onchange="loadJobs()">
+        <option value="all">All Sites</option>
+      </select>
+      <select class="filter-select" id="filter-score" onchange="loadJobs()">
+        <option value="all">All Scores</option>
+        <option value="7">High Fit (≥ 7)</option>
+        <option value="5">Mid Fit (≥ 5)</option>
+        <option value="scored">Any Scored</option>
+        <option value="unscored">Unscored</option>
+      </select>
+      <select class="filter-select" id="filter-stage" onchange="loadJobs()">
+        <option value="all">All Stages</option>
+        <option value="enriched">Enriched JDs</option>
+        <option value="tailored">Tailored Resumes</option>
+        <option value="cover">Cover Letters</option>
+        <option value="applied">Applied</option>
+      </select>
+      <select class="filter-select" id="filter-sort" onchange="loadJobs()">
+        <option value="score_desc">Highest Fit Score</option>
+        <option value="newest">Newest Discovered</option>
+        <option value="title">Title (A-Z)</option>
+      </select>
+      <button class="btn-reset" onclick="resetFilters()">Reset</button>
+    </div>
+
+    <div class="jobs-summary-row">
+      <span id="jobs-count-text">Loading jobs…</span>
+      <span id="jobs-filter-tag" style="display:none; color:var(--accent);">Filtered results</span>
+    </div>
+
+    <div class="jobs-list" id="jobs-list">
+      <!-- Dynamic job rows rendered by JS -->
+    </div>
+  </div>
+
+  <!-- TAB 3: Applications & Tailored -->
+  <div id="pane-applied" class="tab-pane">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div>
+        <h2 style="font-size:1rem; font-weight:700; color:#fff;">Tailored Resumes & Applications</h2>
+        <p style="font-size:0.72rem; color:var(--muted); margin-top:2px;">Custom-crafted resumes and cover letters for your highest scoring jobs.</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" style="padding:6px 14px; font-size:0.74rem;" onclick="switchTab('pipeline'); doApply();">🤖 Auto-Apply Eligible</button>
+      </div>
+    </div>
+    <div class="applied-grid" id="applied-grid">
+      <!-- Dynamic applied cards -->
+    </div>
+  </div>
+
+  <!-- TAB 4: Analytics & History -->
+  <div id="pane-analytics" class="tab-pane">
+    <div class="analytics-grid">
+      <!-- Funnel Box -->
+      <div class="analytics-box">
+        <div class="analytics-box-title">
+          <span>Pipeline Conversion Funnel</span>
+          <span style="font-size:0.68rem; text-transform:none; color:var(--accent);" id="funnel-total-badge">101 Jobs</span>
+        </div>
+        <div id="funnel-items">
+          <!-- Dynamic funnel bars -->
+        </div>
+      </div>
+
+      <!-- Score Distribution Box -->
+      <div class="analytics-box">
+        <div class="analytics-box-title">
+          <span>AI Score Distribution</span>
+          <span style="font-size:0.68rem; text-transform:none; color:var(--ok);" id="hist-avg-score">Avg Fit: --</span>
+        </div>
+        <div class="hist-chart" id="hist-chart">
+          <!-- Dynamic histogram bars -->
+        </div>
+      </div>
+    </div>
+
+    <div class="analytics-grid">
+      <!-- Sources Breakdown Table -->
+      <div class="analytics-box">
+        <div class="analytics-box-title">
+          <span>Job Sources & Sites</span>
+        </div>
+        <table class="sources-table" id="sources-table">
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th>Scraped</th>
+              <th>High Fit</th>
+              <th>Tailored</th>
+              <th>Avg Score</th>
+            </tr>
+          </thead>
+          <tbody id="sources-tbody">
+            <!-- Dynamic site rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Run Logs List -->
+      <div class="analytics-box">
+        <div class="analytics-box-title">
+          <span>Execution Run Logs</span>
+          <span style="font-size:0.68rem; text-transform:none; color:var(--muted);">~/.applypilot/logs</span>
+        </div>
+        <div class="logs-list" id="logs-list">
+          <!-- Dynamic log files -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Inspection Modal -->
+  <div class="modal-overlay" id="modal-job" onclick="if(event.target===this) closeJobModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="m-title">Job Title</div>
+          <div class="modal-sub">
+            <span id="m-site-badge" class="site-pill site-linkedin">LinkedIn</span>
+            <span id="m-location">Location</span>
+            <span id="m-salary"></span>
+            <a id="m-link" href="#" target="_blank" rel="noopener noreferrer" style="color:var(--accent); text-decoration:none; display:inline-flex; align-items:center; gap:3px;">
+              External Link ↗
+            </a>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeJobModal()">✕</button>
+      </div>
+      <div class="modal-nav">
+        <button class="modal-tab-btn active" id="mtab-btn-analysis" onclick="switchModalTab('analysis')">⭐ AI Match Analysis</button>
+        <button class="modal-tab-btn" id="mtab-btn-desc" onclick="switchModalTab('desc')">📋 Job Description</button>
+        <button class="modal-tab-btn" id="mtab-btn-resume" onclick="switchModalTab('resume')">✂️ Tailored Resume</button>
+        <button class="modal-tab-btn" id="mtab-btn-cover" onclick="switchModalTab('cover')">📝 Cover Letter</button>
+      </div>
+      <div class="modal-body">
+        <div id="mtab-content-analysis">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px;">
+            <div id="m-score-badge" class="badge-score score-high" style="font-size:1.1rem; padding:6px 14px;">--/10</div>
+            <div>
+              <div style="font-size:0.85rem; font-weight:600; color:#fff;" id="m-score-title">AI Compatibility Score</div>
+              <div style="font-size:0.72rem; color:var(--muted);" id="m-scored-at">Scored date</div>
+            </div>
+          </div>
+          <div class="sec-title" style="margin-bottom:8px;">AI Evaluation Reasoning</div>
+          <div class="modal-text-box" id="m-reasoning" style="font-family:'Inter',sans-serif; font-size:0.82rem; line-height:1.6;">No reasoning available.</div>
+        </div>
+        <div id="mtab-content-desc" style="display:none;">
+          <div class="modal-text-box" id="m-full-desc" style="font-family:'Inter',sans-serif; font-size:0.8rem; line-height:1.65;">No description available.</div>
+        </div>
+        <div id="mtab-content-resume" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:0.72rem; color:var(--muted);" id="m-resume-path"></span>
+            <button class="btn btn-sec" style="padding:4px 10px; font-size:0.7rem;" onclick="copyElementText('m-resume-text', 'Tailored resume copied!')">📋 Copy Resume</button>
+          </div>
+          <div class="modal-text-box" id="m-resume-text">No tailored resume generated yet.</div>
+        </div>
+        <div id="mtab-content-cover" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:0.72rem; color:var(--muted);" id="m-cover-path"></span>
+            <button class="btn btn-sec" style="padding:4px 10px; font-size:0.7rem;" onclick="copyElementText('m-cover-text', 'Cover letter copied!')">📋 Copy Letter</button>
+          </div>
+          <div class="modal-text-box" id="m-cover-text">No cover letter generated yet.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size:0.72rem; color:var(--muted);" id="m-applied-status">Status: Pending</span>
+        <button class="btn btn-sec" onclick="closeJobModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Viewer Modal -->
+  <div class="modal-overlay" id="modal-log" onclick="if(event.target===this) closeLogModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="mlog-title">Log File</div>
+          <div class="modal-sub" id="mlog-sub">Worker Execution Log</div>
+        </div>
+        <button class="modal-close" onclick="closeLogModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-text-box" id="mlog-content" style="max-height:500px;">Loading…</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sec" onclick="copyElementText('mlog-content', 'Log content copied!')">📋 Copy Log</button>
+        <button class="btn btn-sec" onclick="closeLogModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast feedback -->
+  <div class="toast" id="toast">Copied to clipboard</div>
 
 </div>
 <script>
@@ -370,6 +1087,52 @@ function setRunning(on) {
   });
   document.getElementById('b-stop').disabled = !on;
   document.querySelectorAll('.s-run').forEach(b => b.disabled = on);
+  const tr = document.getElementById('term-running');
+  if (tr) tr.classList.toggle('active', !!on);
+}
+
+function getLineClass(data) {
+  const low = String(data).toLowerCase();
+  if (low.includes('[error]') || low.startsWith('error')) return 'te';
+  if (low.includes('[warn]') || low.includes('warning')) return 'tw';
+  if (low.includes('[ok]') || low.includes('success')) return 'ts';
+  if (low.includes('[info]')) return 'ti';
+  return 'td';
+}
+
+async function readSseStream(reader, stageId=null) {
+  const dec = new TextDecoder();
+  let buf = '';
+  let hasErr = false;
+  outer:
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, {stream:true});
+    const parts = buf.split('\n\n');
+    buf = parts.pop();
+    for (const part of parts) {
+      if (!part.startsWith('data: ')) continue;
+      let data;
+      try { data = JSON.parse(part.slice(6)); } catch { continue; }
+      if (data === '__DONE__') break outer;
+      const cls = getLineClass(data);
+      if (cls === 'te') hasErr = true;
+      addLine(data, cls);
+    }
+  }
+  addLine('');
+  if (hasErr) {
+    addLine('✗ Completed with errors.', 'te');
+    setStatus('error', 'Error');
+    if (stageId) setStageDot(stageId, 'error');
+  } else {
+    addLine('✓ Done.', 'ts');
+    setStatus('ready', 'Ready');
+    if (stageId) setStageDot(stageId, 'done');
+  }
+  if (stageId) setCard(stageId, false);
+  setRunning(false);
 }
 
 // Main runner — SSE via fetch + ReadableStream
@@ -383,47 +1146,57 @@ async function exec(command, args=[], stageId=null) {
   addLine('');
   addLine('$ ' + label, 'tc');
 
-  let hasErr = false;
   try {
     const res = await fetch('/run', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({command, args})
+      body: JSON.stringify({command, args, stage_id: stageId})
     });
-    const reader = res.body.getReader();
-    const dec    = new TextDecoder();
-    let buf = '';
-    outer:
-    while (true) {
-      const {done, value} = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, {stream:true});
-      const parts = buf.split('\n\n');
-      buf = parts.pop();
-      for (const part of parts) {
-        if (!part.startsWith('data: ')) continue;
-        let data;
-        try { data = JSON.parse(part.slice(6)); } catch { continue; }
-        if (data === '__DONE__') break outer;
-        const low = data.toLowerCase();
-        let cls = 'td';
-        if (low.includes('[error]') || low.startsWith('error'))  { cls='te'; hasErr=true; }
-        else if (low.includes('[warn]') || low.includes('warning')) cls='tw';
-        else if (low.includes('[ok]')   || low.includes('success')) cls='ts';
-        else if (low.includes('[info]'))                             cls='ti';
-        addLine(data, cls);
-      }
-    }
-    addLine('');
-    if (hasErr) { addLine('✗ Completed with errors.','te'); setStatus('error','Error'); if(stageId){setStageDot(stageId,'error');} }
-    else        { addLine('✓ Done.','ts');                  setStatus('ready','Ready'); if(stageId){setStageDot(stageId,'done');} }
+    await readSseStream(res.body.getReader(), stageId);
   } catch(e) {
     addLine('[ERROR] ' + e.message, 'te');
     setStatus('error','Error');
-    if (stageId) setStageDot(stageId,'error');
+    if (stageId) { setStageDot(stageId,'error'); setCard(stageId, false); }
+    setRunning(false);
   }
-  if (stageId) setCard(stageId, false);
-  setRunning(false);
+}
+
+async function attachRunning(status) {
+  setRunning(true);
+  setStatus('running', 'Running…');
+  if (status.stage_id) {
+    setStageDot(status.stage_id, 'running');
+    setCard(status.stage_id, true);
+  }
+  term.innerHTML = '';
+  if (status.command) {
+    const label = 'applypilot ' + status.command + (status.args && status.args.length ? ' ' + status.args.join(' ') : '');
+    addLine('$ ' + label + ' (reconnected)', 'tc');
+  }
+  if (Array.isArray(status.history)) {
+    status.history.forEach(line => addLine(line, getLineClass(line)));
+  }
+  try {
+    const res = await fetch('/stream?after=' + (status.line_count || 0));
+    await readSseStream(res.body.getReader(), status.stage_id);
+  } catch (e) {
+    addLine('[ERROR] Reconnect failed: ' + e.message, 'te');
+    setStatus('error', 'Error');
+    if (status.stage_id) { setStageDot(status.stage_id, 'error'); setCard(status.stage_id, false); }
+    setRunning(false);
+  }
+}
+
+async function checkRunning() {
+  try {
+    const r = await fetch('/proc-status');
+    const d = await r.json();
+    if (d.running) {
+      attachRunning(d);
+    }
+  } catch (e) {
+    console.error('Check running failed:', e);
+  }
 }
 
 // Collect run options
@@ -466,6 +1239,537 @@ async function doStop() {
   } catch(e) { addLine('[ERROR] '+e.message,'te'); }
 }
 
+// ── Dashboard & Jobs Data Layer ────────────────────────────────────────────────
+let currentTab = 'pipeline';
+let searchDebounceTimer = null;
+let currentModalJob = null;
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function switchTab(tabId) {
+  currentTab = tabId;
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+  const btn = document.getElementById('tab-btn-' + tabId);
+  const pane = document.getElementById('pane-' + tabId);
+  if (btn) btn.classList.add('active');
+  if (pane) pane.classList.add('active');
+
+  if (tabId === 'jobs') loadJobs();
+  if (tabId === 'applied') loadApplied();
+  if (tabId === 'analytics') { loadDashboard(); loadLogs(); }
+}
+
+async function loadDashboard() {
+  try {
+    const res = await fetch('/api/dashboard');
+    const data = await res.json();
+    if (!data.ok || !data.stats) return;
+    const s = data.stats;
+
+    // Update KPI counters
+    document.getElementById('kpi-total').textContent = s.total != null ? s.total : '--';
+    document.getElementById('kpi-enriched').textContent = s.with_description != null ? s.with_description : '--';
+    document.getElementById('kpi-scored').textContent = s.scored != null ? s.scored : '--';
+    document.getElementById('kpi-tailored').textContent = s.tailored != null ? s.tailored : '--';
+    document.getElementById('kpi-applied').textContent = s.applied != null ? s.applied : '0';
+
+    document.getElementById('kpi-high-fit').textContent = (s.high_fit || 0) + ' High Fit (≥7/10)';
+    document.getElementById('kpi-cover').textContent = (s.with_cover_letter || 0) + ' Cover Letters';
+    document.getElementById('kpi-ready').textContent = (s.ready_to_apply || Math.max((s.tailored || 0) - (s.applied || 0), 0)) + ' ready to apply';
+
+    // Tab badges
+    document.getElementById('cnt-jobs').textContent = s.total || '0';
+    document.getElementById('cnt-applied').textContent = (s.tailored || s.with_cover_letter || '0');
+
+    // Sites breakdown in KPI sub
+    if (s.by_site && s.by_site.length) {
+      document.getElementById('kpi-sites').textContent = s.by_site.map(x => x[0] + ' (' + x[1] + ')').join(', ');
+
+      // Populate site filter dropdown if empty
+      const siteSelect = document.getElementById('filter-site');
+      if (siteSelect && siteSelect.options.length <= 1) {
+        s.by_site.forEach(([siteName, cnt]) => {
+          const opt = document.createElement('option');
+          opt.value = siteName;
+          opt.textContent = siteName + ' (' + cnt + ')';
+          siteSelect.appendChild(opt);
+        });
+      }
+    }
+
+    // Render Funnel
+    renderFunnel(s);
+
+    // Render Score Distribution Histogram
+    renderHistogram(s);
+
+    // Render Sources Table
+    renderSourcesTable(s.site_details || []);
+
+  } catch (e) {
+    console.error('loadDashboard error:', e);
+  }
+}
+
+function renderFunnel(s) {
+  const total = s.total || 1;
+  const enriched = s.with_description || 0;
+  const scored = s.scored || 0;
+  const tailored = s.tailored || 0;
+  const applied = s.applied || 0;
+
+  document.getElementById('funnel-total-badge').textContent = (s.total || 0) + ' Total Jobs';
+
+  const stages = [
+    { label: '1. Discovered (Scraped)', val: s.total || 0, color: 'linear-gradient(90deg, #00d4ff, #0077ff)' },
+    { label: '2. Enriched (Full JD)',   val: enriched,     color: 'linear-gradient(90deg, #58a6ff, #388bfd)' },
+    { label: '3. AI Scored',            val: scored,       color: 'linear-gradient(90deg, #a371f7, #8957e5)' },
+    { label: '4. Tailored & Cover CL',  val: tailored,     color: 'linear-gradient(90deg, #3fb950, #2ea043)' },
+    { label: '5. Auto-Applied',         val: applied,      color: 'linear-gradient(90deg, #f0883e, #d29922)' }
+  ];
+
+  const container = document.getElementById('funnel-items');
+  if (!container) return;
+  container.innerHTML = stages.map(st => {
+    const pct = total > 0 ? Math.round((st.val / total) * 100) : 0;
+    return `
+      <div class="funnel-item">
+        <div class="funnel-meta">
+          <span class="funnel-label">${st.label}</span>
+          <span class="funnel-val">${st.val} <span style="font-weight:400; color:var(--muted); font-size:0.68rem;">(${pct}%)</span></span>
+        </div>
+        <div class="funnel-track">
+          <div class="funnel-fill" style="width: ${Math.max(pct, st.val > 0 ? 3 : 0)}%; background: ${st.color};"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderHistogram(s) {
+  const dist = s.score_distribution || [];
+  const distMap = {};
+  dist.forEach(([score, cnt]) => { distMap[score] = cnt; });
+  let maxCnt = 1;
+  for (let sc = 1; sc <= 10; sc++) {
+    if ((distMap[sc] || 0) > maxCnt) maxCnt = distMap[sc];
+  }
+
+  const avgEl = document.getElementById('hist-avg-score');
+  if (avgEl) avgEl.textContent = s.avg_score ? 'Avg: ' + s.avg_score + '/10' : 'Avg: --';
+
+  const chart = document.getElementById('hist-chart');
+  if (!chart) return;
+  chart.innerHTML = '';
+  for (let score = 1; score <= 10; score++) {
+    const count = distMap[score] || 0;
+    const heightPct = Math.round((count / maxCnt) * 100);
+    const isHigh = score >= 7;
+    const col = document.createElement('div');
+    col.className = 'hist-col';
+    col.title = 'Score ' + score + '/10: ' + count + ' jobs';
+    col.innerHTML = `
+      <div class="hist-cnt">${count > 0 ? count : ''}</div>
+      <div class="hist-bar-wrap">
+        <div class="hist-bar ${isHigh ? 'high' : ''}" style="height: ${Math.max(heightPct, count > 0 ? 8 : 2)}%;"></div>
+      </div>
+      <div class="hist-lbl">${score}</div>
+    `;
+    chart.appendChild(col);
+  }
+}
+
+function renderSourcesTable(siteDetails) {
+  const tbody = document.getElementById('sources-tbody');
+  if (!tbody) return;
+  if (!siteDetails.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:16px;">No source data available</td></tr>';
+    return;
+  }
+  tbody.innerHTML = siteDetails.map(d => `
+    <tr>
+      <td><span class="site-pill site-${escapeHtml(d.site).toLowerCase()}">${escapeHtml(d.site)}</span></td>
+      <td><strong>${d.total}</strong></td>
+      <td><span style="color:var(--ok); font-weight:600;">${d.high_fit}</span></td>
+      <td><span style="color:var(--purple); font-weight:600;">${d.tailored}</span></td>
+      <td>${d.avg_score ? d.avg_score + '/10' : '--'}</td>
+    </tr>
+  `).join('');
+}
+
+function debounceSearch() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    loadJobs();
+  }, 250);
+}
+
+function filterByStage(stage) {
+  const el = document.getElementById('filter-stage');
+  if (el) el.value = stage;
+  loadJobs();
+}
+
+function filterByScore(score) {
+  const el = document.getElementById('filter-score');
+  if (el) el.value = String(score);
+  loadJobs();
+}
+
+function resetFilters() {
+  document.getElementById('jobs-search').value = '';
+  document.getElementById('filter-site').value = 'all';
+  document.getElementById('filter-score').value = 'all';
+  document.getElementById('filter-stage').value = 'all';
+  document.getElementById('filter-sort').value = 'score_desc';
+  loadJobs();
+}
+
+async function loadJobs() {
+  const list = document.getElementById('jobs-list');
+  const countText = document.getElementById('jobs-count-text');
+  const filterTag = document.getElementById('jobs-filter-tag');
+  if (!list) return;
+
+  const q = document.getElementById('jobs-search').value.trim();
+  const site = document.getElementById('filter-site').value;
+  const score = document.getElementById('filter-score').value;
+  const stage = document.getElementById('filter-stage').value;
+  const sort = document.getElementById('filter-sort').value;
+
+  const isFiltered = q || site !== 'all' || score !== 'all' || stage !== 'all';
+  if (filterTag) filterTag.style.display = isFiltered ? 'inline' : 'none';
+
+  const params = new URLSearchParams();
+  if (q) params.set('search', q);
+  if (site && site !== 'all') params.set('site', site);
+  if (score === 'scored') params.set('stage', 'scored');
+  else if (score === 'unscored') params.set('stage', 'unscored');
+  else if (score !== 'all') params.set('min_score', score);
+  if (stage && stage !== 'all') params.set('stage', stage);
+  if (sort) params.set('sort', sort);
+  params.set('limit', '100');
+
+  try {
+    const res = await fetch('/api/jobs?' + params.toString());
+    const data = await res.json();
+    if (!data.ok) {
+      if (countText) countText.textContent = 'Failed to load jobs';
+      return;
+    }
+
+    if (countText) countText.textContent = `Showing ${data.jobs.length} of ${data.total} jobs`;
+
+    if (!data.jobs.length) {
+      list.innerHTML = `
+        <div style="padding:48px; text-align:center; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:var(--r);">
+          <div style="font-size:2rem; margin-bottom:8px;">🔍</div>
+          <div style="font-size:0.9rem; font-weight:600; color:var(--text);">No jobs match your filters</div>
+          <div style="font-size:0.75rem; margin-top:4px;">Try searching for a different keyword or resetting filters.</div>
+          <button class="btn btn-sec" style="margin-top:14px; padding:6px 14px;" onclick="resetFilters()">Reset All Filters</button>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = data.jobs.map(job => {
+      const siteClass = 'site-' + (job.site ? job.site.toLowerCase() : 'default');
+      let scoreClass = 'score-none';
+      let scoreText = 'Unscored';
+      if (job.fit_score != null) {
+        scoreText = job.fit_score + '/10';
+        if (job.fit_score >= 7) scoreClass = 'score-high';
+        else if (job.fit_score >= 5) scoreClass = 'score-mid';
+        else scoreClass = 'score-low';
+      }
+
+      const tags = [];
+      if (job.has_desc) tags.push('<span class="tag-pill">Enriched</span>');
+      if (job.tailored_resume_path) tags.push('<span class="tag-pill tag-tailored">Tailored Resume</span>');
+      if (job.cover_letter_path) tags.push('<span class="tag-pill tag-cover">Cover Letter</span>');
+      if (job.applied_at) tags.push('<span class="tag-pill tag-applied">Applied ✓</span>');
+      else if (job.apply_status === 'in_progress') tags.push('<span class="tag-pill tag-inprog">In Progress</span>');
+
+      const meta = [];
+      if (job.location) meta.push(`<span class="job-meta-item">📍 ${escapeHtml(job.location)}</span>`);
+      if (job.salary) meta.push(`<span class="job-meta-item">💰 ${escapeHtml(job.salary)}</span>`);
+      if (job.discovered_at) {
+        const d = new Date(job.discovered_at);
+        meta.push(`<span class="job-meta-item">🕒 ${d.toLocaleDateString()}</span>`);
+      }
+
+      return `
+        <div class="job-card">
+          <div class="job-left">
+            <span class="site-pill ${siteClass}">${escapeHtml(job.site || 'Site')}</span>
+            <div class="job-info">
+              <div class="job-title-row">
+                <span class="job-title" onclick="openJobModal('${escapeHtml(job.url)}')" title="${escapeHtml(job.title)}">
+                  ${escapeHtml(job.title || 'Untitled Job')}
+                </span>
+                <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--muted); font-size:0.75rem; text-decoration:none;" title="Open original link">↗</a>
+              </div>
+              <div class="job-meta">
+                ${meta.join('')}
+              </div>
+              ${tags.length ? `<div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:6px;">${tags.join('')}</div>` : ''}
+            </div>
+          </div>
+          <div class="job-right">
+            <span class="badge-score ${scoreClass}">${scoreText}</span>
+            <button class="btn-inspect" onclick="openJobModal('${escapeHtml(job.url)}')">Inspect & Artifacts</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (e) {
+    console.error('loadJobs error:', e);
+    if (countText) countText.textContent = 'Error loading jobs';
+  }
+}
+
+async function loadApplied() {
+  const grid = document.getElementById('applied-grid');
+  if (!grid) return;
+  try {
+    const res = await fetch('/api/jobs?stage=tailored&limit=100');
+    const data = await res.json();
+    if (!data.ok || !data.jobs.length) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; padding:48px; text-align:center; color:var(--muted); background:var(--card); border:1px solid var(--border); border-radius:var(--r);">
+          <div style="font-size:2rem; margin-bottom:8px;">✂️</div>
+          <div style="font-size:0.9rem; font-weight:600; color:var(--text);">No Tailored Jobs Yet</div>
+          <div style="font-size:0.75rem; margin-top:4px;">Run the Tailor stage to generate custom-tailored resumes and cover letters for high-scoring jobs.</div>
+          <button class="btn btn-primary" style="margin-top:14px; padding:7px 16px;" onclick="switchTab('pipeline'); runStage('tailor');">▶ Run Tailor Stage</button>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = data.jobs.map(job => {
+      const siteClass = 'site-' + (job.site ? job.site.toLowerCase() : 'default');
+      const scoreBadge = job.fit_score ? `<span class="badge-score score-high">${job.fit_score}/10 Match</span>` : '';
+      let statusTag = '<span class="tag-pill tag-cover">Ready to Apply</span>';
+      if (job.applied_at) statusTag = '<span class="tag-pill tag-applied">Applied ✓</span>';
+      else if (job.apply_status === 'in_progress') statusTag = '<span class="tag-pill tag-inprog">In Progress (' + (job.apply_attempts || 0) + ' tries)</span>';
+
+      return `
+        <div class="app-card">
+          <div class="app-card-top">
+            <div class="app-card-header">
+              <span class="site-pill ${siteClass}">${escapeHtml(job.site || 'Site')}</span>
+              ${scoreBadge}
+            </div>
+            <div class="app-card-title">${escapeHtml(job.title || 'Untitled')}</div>
+            <div class="app-card-meta">
+              <span>📍 ${escapeHtml(job.location || 'Remote')}</span>
+              <span>•</span>
+              ${statusTag}
+            </div>
+            <div class="app-preview-box">
+              ${escapeHtml(job.score_reasoning ? job.score_reasoning.slice(0, 180) + '…' : 'Tailored resume and custom application assets generated.')}
+            </div>
+          </div>
+          <div class="app-actions">
+            <button class="app-btn" onclick="openJobModal('${escapeHtml(job.url)}', 'resume')">📄 View Resume</button>
+            <button class="app-btn" onclick="openJobModal('${escapeHtml(job.url)}', 'cover')">📝 View Cover</button>
+            <button class="app-btn app-btn-apply" onclick="openJobModal('${escapeHtml(job.url)}', 'analysis')">🔍 Details</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (e) {
+    console.error('loadApplied error:', e);
+  }
+}
+
+async function openJobModal(url, defaultTab='analysis') {
+  const modal = document.getElementById('modal-job');
+  modal.classList.add('open');
+  switchModalTab(defaultTab);
+
+  document.getElementById('m-title').textContent = 'Loading job details…';
+  document.getElementById('m-location').textContent = '';
+  document.getElementById('m-salary').textContent = '';
+  document.getElementById('m-link').href = '#';
+  document.getElementById('m-reasoning').textContent = 'Fetching analysis…';
+  document.getElementById('m-full-desc').textContent = 'Fetching description…';
+  document.getElementById('m-resume-text').textContent = 'Loading tailored resume…';
+  document.getElementById('m-cover-text').textContent = 'Loading cover letter…';
+
+  try {
+    const res = await fetch('/api/job-detail?url=' + encodeURIComponent(url));
+    const data = await res.json();
+    if (!data.ok || !data.job) {
+      document.getElementById('m-title').textContent = 'Job not found';
+      return;
+    }
+    const j = data.job;
+    currentModalJob = j;
+
+    document.getElementById('m-title').textContent = j.title || 'Untitled Job';
+    document.getElementById('m-location').textContent = j.location ? '📍 ' + j.location : '';
+    document.getElementById('m-salary').textContent = j.salary ? '💰 ' + j.salary : '';
+    document.getElementById('m-link').href = j.url || '#';
+
+    // Site badge
+    const sb = document.getElementById('m-site-badge');
+    sb.textContent = j.site || 'Site';
+    sb.className = 'site-pill site-' + (j.site ? j.site.toLowerCase() : 'default');
+
+    // Score badge
+    const scb = document.getElementById('m-score-badge');
+    if (j.fit_score != null) {
+      scb.textContent = j.fit_score + '/10';
+      scb.className = 'badge-score ' + (j.fit_score >= 7 ? 'score-high' : j.fit_score >= 5 ? 'score-mid' : 'score-low');
+      document.getElementById('m-score-title').textContent = j.fit_score >= 7 ? '⭐ Strong Match Candidate' : 'Moderate Compatibility';
+    } else {
+      scb.textContent = 'Unscored';
+      scb.className = 'badge-score score-none';
+      document.getElementById('m-score-title').textContent = 'Not yet scored by AI';
+    }
+    document.getElementById('m-scored-at').textContent = j.scored_at ? 'Scored on ' + new Date(j.scored_at).toLocaleString() : 'Pending evaluation';
+
+    // Reasoning
+    document.getElementById('m-reasoning').textContent = j.score_reasoning || 'No AI score reasoning recorded.';
+
+    // Full description
+    document.getElementById('m-full-desc').textContent = j.full_description || j.description || 'No description available.';
+
+    // Tailored resume
+    document.getElementById('m-resume-path').textContent = j.tailored_resume_path || '';
+    document.getElementById('m-resume-text').textContent = j.tailored_resume_text || 'No tailored resume generated yet. Run the Tailor stage to create one.';
+
+    // Cover letter
+    document.getElementById('m-cover-path').textContent = j.cover_letter_path || '';
+    document.getElementById('m-cover-text').textContent = j.cover_letter_text || 'No cover letter generated yet. Run the Cover Letter stage to create one.';
+
+    // Status footer
+    let statusTxt = 'Status: Discovered';
+    if (j.applied_at) statusTxt = 'Status: Applied on ' + new Date(j.applied_at).toLocaleString();
+    else if (j.apply_status === 'in_progress') statusTxt = `Status: In Progress (${j.apply_attempts || 0} attempts)`;
+    else if (j.tailored_resume_path) statusTxt = 'Status: Tailored & Ready to Apply';
+    document.getElementById('m-applied-status').textContent = statusTxt;
+
+  } catch (e) {
+    console.error('openJobModal error:', e);
+  }
+}
+
+function switchModalTab(tabKey) {
+  const tabs = ['analysis', 'desc', 'resume', 'cover'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('mtab-btn-' + t);
+    const content = document.getElementById('mtab-content-' + t);
+    if (btn) btn.classList.toggle('active', t === tabKey);
+    if (content) content.style.display = t === tabKey ? 'block' : 'none';
+  });
+}
+
+function closeJobModal() {
+  document.getElementById('modal-job').classList.remove('open');
+}
+
+async function loadLogs() {
+  const list = document.getElementById('logs-list');
+  if (!list) return;
+  try {
+    const res = await fetch('/api/logs');
+    const data = await res.json();
+    if (!data.ok || !data.logs || !data.logs.length) {
+      list.innerHTML = '<div style="padding:14px; color:var(--muted); font-size:0.75rem;">No log files found in ~/.applypilot/logs</div>';
+      return;
+    }
+    list.innerHTML = data.logs.map(f => {
+      const kb = Math.round(f.size / 1024);
+      const d = new Date(f.modified);
+      return `
+        <div class="log-item" onclick="openLogModal('${escapeHtml(f.name)}')">
+          <div style="font-weight:600; font-family:'JetBrains Mono',monospace;">📄 ${escapeHtml(f.name)}</div>
+          <div class="log-meta">
+            <span>${kb} KB</span>
+            <span>•</span>
+            <span>${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('loadLogs error:', e);
+  }
+}
+
+async function openLogModal(filename) {
+  const modal = document.getElementById('modal-log');
+  modal.classList.add('open');
+  document.getElementById('mlog-title').textContent = filename;
+  document.getElementById('mlog-sub').textContent = 'Loading log content…';
+  const contentBox = document.getElementById('mlog-content');
+  contentBox.textContent = 'Fetching…';
+
+  try {
+    const res = await fetch('/api/log-file?name=' + encodeURIComponent(filename));
+    const data = await res.json();
+    if (!data.ok) {
+      contentBox.textContent = 'Error loading log: ' + (data.error || 'Unknown');
+      return;
+    }
+    document.getElementById('mlog-sub').textContent = 'Viewing log (' + filename + ')';
+    contentBox.textContent = data.content || '(Log file is empty)';
+  } catch (e) {
+    contentBox.textContent = 'Network error fetching log: ' + e.message;
+  }
+}
+
+function closeLogModal() {
+  document.getElementById('modal-log').classList.remove('open');
+}
+
+function copyElementText(elemId, toastMsg='Copied to clipboard!') {
+  const el = document.getElementById(elemId);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    showToast(toastMsg);
+  }).catch(() => {
+    showToast('Failed to copy');
+  });
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+async function refreshAll() {
+  const rfBtn = document.getElementById('btn-refresh');
+  if (rfBtn) rfBtn.classList.add('spinning');
+  await Promise.allSettled([
+    loadDashboard(),
+    loadJobs(),
+    loadApplied(),
+    loadLogs(),
+    checkEnv()
+  ]);
+  if (rfBtn) setTimeout(() => rfBtn.classList.remove('spinning'), 600);
+  showToast('Dashboard refreshed');
+}
+
 // Env check on load
 async function checkEnv() {
   try {
@@ -475,7 +1779,7 @@ async function checkEnv() {
     if (d.env_exists && d.profile_exists) {
       badge.textContent = '✓ Config ready';
       badge.className   = 'badge ok';
-      setStatus('ready','Ready');
+      if (!running) setStatus('ready','Ready');
     } else {
       badge.textContent = '⚠ Config missing';
       badge.className   = 'badge warn';
@@ -484,13 +1788,18 @@ async function checkEnv() {
     }
     if (!d.ap_exe_ok) {
       addLine('[ERROR] applypilot executable not found in venv. Did setup.bat complete?','te');
-      setStatus('error','Error');
+      if (!running) setStatus('error','Error');
     }
   } catch {
     document.getElementById('env-badge').textContent = 'Server offline';
   }
 }
 checkEnv();
+checkRunning();
+loadDashboard();
+loadJobs();
+loadApplied();
+loadLogs();
 </script>
 </body>
 </html>
