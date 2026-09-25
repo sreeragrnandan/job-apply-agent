@@ -50,13 +50,8 @@ info "Checking prerequisites..."
 
 command -v python3 &>/dev/null || error "python3 not found. Install Python 3.11+ from https://python.org"
 
-python3 - <<'PYCHECK'
-import sys
-if sys.version_info < (3, 11):
-    print(f"Python 3.11+ required. Found {sys.version_info.major}.{sys.version_info.minor}")
-    sys.exit(1)
-PYCHECK
 PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)"   || error "Python 3.11+ required. You have ${PY_VER}. Upgrade from https://python.org"
 success "Python ${PY_VER} found"
 
 python3 -m pip --version &>/dev/null || error "pip not available. Run: python3 -m ensurepip --upgrade"
