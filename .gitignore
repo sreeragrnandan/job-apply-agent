@@ -42,3 +42,7 @@ Thumbs.db
 
 # IDE
 *.antigravity-ide/*
+
+# Other
+applypilot_content/
+applypilot_content.zip
