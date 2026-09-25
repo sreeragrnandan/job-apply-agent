@@ -116,10 +116,21 @@ def load_search_config() -> dict:
 def load_sites_config() -> dict:
     """Load sites.yaml configuration (sites list, manual_ats, blocked, etc.)."""
     import yaml
+    cfg = {}
     path = CONFIG_DIR / "sites.yaml"
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if path.exists():
+        cfg.update(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    user_path = APP_DIR / "sites.yaml"
+    if user_path.exists():
+        user_cfg = yaml.safe_load(user_path.read_text(encoding="utf-8")) or {}
+        for k, v in user_cfg.items():
+            if isinstance(v, list) and k in cfg and isinstance(cfg[k], list):
+                cfg[k].extend(v)
+            elif isinstance(v, dict) and k in cfg and isinstance(cfg[k], dict):
+                cfg[k].update(v)
+            else:
+                cfg[k] = v
+    return cfg
 
 
 def is_manual_ats(url: str | None) -> bool:

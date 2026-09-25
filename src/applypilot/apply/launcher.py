@@ -147,7 +147,8 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
 
         # Skip manual ATS sites (unsolvable CAPTCHAs)
         from applypilot.config import is_manual_ats
-        apply_url = row["application_url"] or row["url"]
+        raw_app_url = str(row["application_url"] or "").strip()
+        apply_url = row["url"] if not raw_app_url or raw_app_url.lower() in ("none", "null", "") else raw_app_url
         if is_manual_ats(apply_url):
             conn.execute(
                 "UPDATE jobs SET apply_status = 'manual', apply_error = 'manual ATS' WHERE url = ?",
@@ -323,7 +324,7 @@ def run_job(job: dict, port: int, worker_id: int = 0,
 
     # Build claude command
     cmd = [
-        "claude",
+        "claude.cmd" if sys.platform == "win32" else "claude",
         "--model", model,
         "-p",
         "--mcp-config", str(mcp_config_path),
@@ -356,10 +357,12 @@ def run_job(job: dict, port: int, worker_id: int = 0,
 
     worker_log = config.LOG_DIR / f"worker-{worker_id}.log"
     ts_header = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    raw_app_url = str(job.get("application_url", "")).strip()
+    job_target_url = job.get("url", "") if not raw_app_url or raw_app_url.lower() in ("none", "null", "") else raw_app_url
     log_header = (
         f"\n{'=' * 60}\n"
         f"[{ts_header}] {job['title']} @ {job.get('site', '')}\n"
-        f"URL: {job.get('application_url') or job['url']}\n"
+        f"URL: {job_target_url}\n"
         f"Score: {job.get('fit_score', 'N/A')}/10\n"
         f"{'=' * 60}\n"
     )

@@ -6,6 +6,7 @@ worker profile setup/cloning, and cross-platform process cleanup.
 
 import json
 import logging
+import os
 import platform
 import shutil
 import subprocess
@@ -13,7 +14,11 @@ import threading
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
 from applypilot import config
+
+# Load user env overrides (.applypilot/.env)
+load_dotenv(config.APP_DIR / ".env", override=False)
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +53,6 @@ def _kill_process_tree(pid: int) -> None:
             )
         else:
             # Unix: kill entire process group
-            import os
             try:
                 os.killpg(os.getpgid(pid), _signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
@@ -100,9 +104,9 @@ def _kill_on_port(port: int) -> None:
 def setup_worker_profile(worker_id: int) -> Path:
     """Create an isolated Chrome profile for a worker.
 
-    On first run, clones from an existing worker profile (preferred, since
-    it already has session cookies) or from the user's real Chrome profile.
-    Subsequent runs reuse the existing worker profile.
+    On first run, copies the configured CHROME_PROFILE from the user's real
+    Chrome User Data into the worker's 'Default' slot so Chrome always opens
+    with the right session cookies. Subsequent runs reuse that cloned profile.
 
     Args:
         worker_id: Numeric worker identifier.
@@ -111,50 +115,53 @@ def setup_worker_profile(worker_id: int) -> Path:
         Path to the worker's Chrome user-data directory.
     """
     profile_dir = config.CHROME_WORKER_DIR / f"worker-{worker_id}"
-    if (profile_dir / "Default").exists():
+    worker_default = profile_dir / "Default"
+    if worker_default.exists():
         return profile_dir  # Already initialized
 
-    # Find a source: prefer existing worker (has session cookies), else user profile
-    source: Path | None = None
-    for wid in range(10):
-        if wid == worker_id:
-            continue
-        candidate = config.CHROME_WORKER_DIR / f"worker-{wid}"
-        if (candidate / "Default").exists():
-            source = candidate
-            break
-    if source is None:
-        source = config.get_chrome_user_data()
+    # Determine real Chrome User Data root
+    env_override = os.environ.get("CHROME_USER_DATA", "").strip()
+    user_data_root = Path(env_override) if env_override else config.get_chrome_user_data()
 
-    logger.info("[worker-%d] Copying Chrome profile from %s (first time setup)...",
-                worker_id, source.name)
+    # Pick the specific profile sub-directory to clone
+    chrome_profile = os.environ.get("CHROME_PROFILE", "Default").strip()
+    profile_source = user_data_root / chrome_profile
+    if not profile_source.exists():
+        # Fallback: try Default
+        logger.warning(
+            "[worker-%d] CHROME_PROFILE=%r not found in %s, falling back to Default",
+            worker_id, chrome_profile, user_data_root,
+        )
+        profile_source = user_data_root / "Default"
+
+    logger.info(
+        "[worker-%d] Cloning profile '%s' -> worker Default (first time setup)...",
+        worker_id, chrome_profile,
+    )
     profile_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy essential profile dirs -- skip caches and heavy transient data
-    skip = {
-        "ShaderCache", "GrShaderCache", "Service Worker", "Cache",
-        "Code Cache", "GPUCache", "CacheStorage", "Crashpad",
-        "BrowserMetrics", "SafeBrowsing", "Crowd Deny",
-        "MEIPreload", "SSLErrorAssistant", "recovery", "Temp",
-        "SingletonLock", "SingletonSocket", "SingletonCookie",
-    }
-
-    for item in source.iterdir():
-        if item.name in skip:
-            continue
-        dst = profile_dir / item.name
+    # Copy Local State (needed for Chrome to recognise the user-data dir)
+    local_state = user_data_root / "Local State"
+    if local_state.exists():
         try:
-            if item.is_dir():
-                shutil.copytree(
-                    str(item), str(dst), dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns(
-                        "Cache", "Code Cache", "GPUCache", "Service Worker",
-                    ),
-                )
-            else:
-                shutil.copy2(str(item), str(dst))
+            shutil.copy2(str(local_state), str(profile_dir / "Local State"))
         except (PermissionError, OSError):
-            pass  # skip locked files
+            pass
+
+    # Clone the chosen profile into Default slot
+    try:
+        shutil.copytree(
+            str(profile_source),
+            str(worker_default),
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(
+                "Cache", "Code Cache", "GPUCache", "Service Worker",
+                "ShaderCache", "GrShaderCache", "CacheStorage",
+                "BrowserMetrics", "Crashpad",
+            ),
+        )
+    except (PermissionError, OSError) as exc:
+        logger.warning("[worker-%d] Profile clone partial: %s", worker_id, exc)
 
     return profile_dir
 
@@ -165,7 +172,10 @@ def _suppress_restore_nag(profile_dir: Path) -> None:
     Chrome writes exit_type=Crashed when killed, which triggers a
     'Restore pages?' prompt on next launch. This patches it out.
     """
-    prefs_file = profile_dir / "Default" / "Preferences"
+    chrome_profile = os.environ.get("CHROME_PROFILE", "Default").strip()
+    prefs_file = profile_dir / chrome_profile / "Preferences"
+    if not prefs_file.exists():
+        prefs_file = profile_dir / "Default" / "Preferences"
     if not prefs_file.exists():
         return
 
@@ -215,7 +225,7 @@ def launch_chrome(worker_id: int, port: int | None = None,
         chrome_exe,
         f"--remote-debugging-port={port}",
         f"--user-data-dir={profile_dir}",
-        "--profile-directory=Default",
+        "--profile-directory=Default",  # worker always clones into Default slot
         "--no-first-run",
         "--no-default-browser-check",
         "--window-size=1024,768",
@@ -228,7 +238,6 @@ def launch_chrome(worker_id: int, port: int | None = None,
         "--disable-popup-blocking",
         # Block dangerous permissions at browser level
         "--use-fake-device-for-media-stream",
-        "--use-fake-ui-for-media-stream",
         "--deny-permission-prompts",
         "--disable-notifications",
     ]
@@ -238,7 +247,6 @@ def launch_chrome(worker_id: int, port: int | None = None,
     # On Unix, start in a new process group so we can kill the whole tree
     kwargs: dict = dict(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if platform.system() != "Windows":
-        import os
         kwargs["preexec_fn"] = os.setsid
 
     proc = subprocess.Popen(cmd, **kwargs)

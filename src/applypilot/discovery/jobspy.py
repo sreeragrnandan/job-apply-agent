@@ -218,7 +218,7 @@ def _run_one_search(
             "results_wanted": results_per_site,
             "hours_old": hours_old,
             "description_format": "markdown",
-            "country_indeed": defaults.get("country_indeed", "usa"),
+            "country_indeed": defaults.get("country_indeed", "india"),
             "verbose": 0,
         }
         if s.get("remote"):
@@ -461,9 +461,14 @@ def run_discovery(cfg: dict | None = None) -> dict:
         return {"new": 0, "existing": 0, "errors": 0, "db_total": 0, "queries": 0}
 
     proxy = cfg.get("proxy")
-    sites = cfg.get("sites")
-    results_per_site = cfg.get("defaults", {}).get("results_per_site", 100)
-    hours_old = cfg.get("defaults", {}).get("hours_old", 72)
+    defaults = cfg.get("defaults", {})
+    # Support both top-level 'sites' key and 'defaults.site_name'
+    sites = cfg.get("sites") or defaults.get("site_name") or ["indeed", "linkedin"]
+    # Filter to only jobspy-supported sites
+    SUPPORTED_SITES = {"indeed", "linkedin", "glassdoor", "zip_recruiter", "google"}
+    sites = [s for s in sites if s in SUPPORTED_SITES]
+    results_per_site = defaults.get("results_per_site", 100)
+    hours_old = defaults.get("hours_old", 72)
     tiers = cfg.get("tiers")
     locations = cfg.get("location_labels")
 

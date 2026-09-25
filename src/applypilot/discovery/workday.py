@@ -29,13 +29,17 @@ log = logging.getLogger(__name__)
 # -- Employer registry from YAML --------------------------------------------
 
 def load_employers() -> dict:
-    """Load Workday employer registry from config/employers.yaml."""
+    """Load Workday employer registry from config/employers.yaml and user's ~/.applypilot/employers.yaml."""
+    employers = {}
     path = CONFIG_DIR / "employers.yaml"
-    if not path.exists():
-        log.warning("employers.yaml not found at %s", path)
-        return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return data.get("employers", {})
+    if path.exists():
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        employers.update(data.get("employers", {}))
+    user_path = config.APP_DIR / "employers.yaml"
+    if user_path.exists():
+        data = yaml.safe_load(user_path.read_text(encoding="utf-8")) or {}
+        employers.update(data.get("employers", {}))
+    return employers
 
 
 # -- Location filtering from search config -----------------------------------
@@ -45,9 +49,28 @@ def _load_location_filter(search_cfg: dict | None = None):
     if search_cfg is None:
         search_cfg = config.load_search_config()
 
-    accept = search_cfg.get("location_accept", [])
-    reject = search_cfg.get("location_reject_non_remote", [])
-    return accept, reject
+    accept = search_cfg.get("location_accept")
+    if not accept:
+        loc_dict = search_cfg.get("location", {})
+        if isinstance(loc_dict, dict) and "accept_patterns" in loc_dict:
+            accept = loc_dict.get("accept_patterns", [])
+        elif "locations" in search_cfg:
+            accept = [
+                item["location"]
+                for item in search_cfg.get("locations", [])
+                if isinstance(item, dict) and "location" in item
+            ]
+            def_loc = search_cfg.get("defaults", {}).get("location")
+            if def_loc and def_loc not in accept:
+                accept.append(def_loc)
+
+    reject = search_cfg.get("location_reject_non_remote")
+    if not reject:
+        loc_dict = search_cfg.get("location", {})
+        if isinstance(loc_dict, dict):
+            reject = loc_dict.get("reject_patterns", [])
+
+    return accept or [], reject or []
 
 
 def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> bool:

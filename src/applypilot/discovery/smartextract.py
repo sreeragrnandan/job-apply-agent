@@ -52,9 +52,28 @@ def _load_location_filter(search_cfg: dict | None = None):
     """Load location accept/reject lists from search config."""
     if search_cfg is None:
         search_cfg = config.load_search_config()
-    accept = search_cfg.get("location_accept", [])
-    reject = search_cfg.get("location_reject_non_remote", [])
-    return accept, reject
+    accept = search_cfg.get("location_accept")
+    if not accept:
+        loc_dict = search_cfg.get("location", {})
+        if isinstance(loc_dict, dict) and "accept_patterns" in loc_dict:
+            accept = loc_dict.get("accept_patterns", [])
+        elif "locations" in search_cfg:
+            accept = [
+                item["location"]
+                for item in search_cfg.get("locations", [])
+                if isinstance(item, dict) and "location" in item
+            ]
+            def_loc = search_cfg.get("defaults", {}).get("location")
+            if def_loc and def_loc not in accept:
+                accept.append(def_loc)
+
+    reject = search_cfg.get("location_reject_non_remote")
+    if not reject:
+        loc_dict = search_cfg.get("location", {})
+        if isinstance(loc_dict, dict):
+            reject = loc_dict.get("reject_patterns", [])
+
+    return accept or [], reject or []
 
 
 def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> bool:
@@ -76,13 +95,17 @@ def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> 
 # -- Site configuration from YAML --------------------------------------------
 
 def load_sites() -> list[dict]:
-    """Load scraping target sites from config/sites.yaml."""
+    """Load scraping target sites from config/sites.yaml and user's ~/.applypilot/sites.yaml."""
+    sites = []
     path = CONFIG_DIR / "sites.yaml"
-    if not path.exists():
-        log.warning("sites.yaml not found at %s", path)
-        return []
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return data.get("sites", [])
+    if path.exists():
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        sites.extend(data.get("sites", []))
+    user_path = config.APP_DIR / "sites.yaml"
+    if user_path.exists():
+        data = yaml.safe_load(user_path.read_text(encoding="utf-8")) or {}
+        sites.extend(data.get("sites", []))
+    return sites
 
 
 def _store_jobs_filtered(

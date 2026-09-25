@@ -102,22 +102,23 @@ def _build_location_check(profile: dict, search_config: dict) -> str:
     location_cfg = search_config.get("location", {})
     accept_patterns = location_cfg.get("accept_patterns", [])
     primary_city = personal.get("city", location_cfg.get("primary", "your city"))
+    country = personal.get("country", "India")
 
     # Build the list of acceptable cities for hybrid/onsite
     if accept_patterns:
         city_list = ", ".join(accept_patterns)
     else:
-        city_list = primary_city
+        city_list = f"{primary_city} or anywhere in {country}"
 
     return f"""== LOCATION CHECK (do this FIRST before any form) ==
-Read the job page. Determine the work arrangement. Then decide:
+Read the job page. Determine the work arrangement and job location. Then decide:
 - "Remote" or "work from anywhere" -> ELIGIBLE. Apply.
 - "Hybrid" or "onsite" in {city_list} -> ELIGIBLE. Apply.
-- "Hybrid" or "onsite" in another city BUT the posting also says "remote OK" or "remote option available" -> ELIGIBLE. Apply.
-- "Onsite only" or "hybrid only" in any city outside the list above with NO remote option -> NOT ELIGIBLE. Stop immediately. Output RESULT:FAILED:not_eligible_location
-- City is overseas (India, Philippines, Europe, etc.) with no remote option -> NOT ELIGIBLE. Output RESULT:FAILED:not_eligible_location
-- Cannot determine location -> Continue applying. If a screening question reveals it's non-local onsite, answer honestly and let the system reject if needed.
-Do NOT fill out forms for jobs that are clearly onsite in a non-acceptable location. Check EARLY, save time."""
+- "Hybrid" or "onsite" in any {country} city (e.g. Bengaluru, Hyderabad, Mumbai, Chennai, Pune, Delhi, Noida, Gurugram, Kochi, Thiruvananthapuram) -> ELIGIBLE. Apply.
+- "Hybrid" or "onsite" in a city outside {country} BUT posting also says "remote OK" or "remote option" -> ELIGIBLE. Apply.
+- "Onsite only" or "hybrid only" OUTSIDE {country} with NO remote option -> NOT ELIGIBLE. Stop immediately. Output RESULT:FAILED:not_eligible_location
+- Cannot determine location -> Continue applying. If a screening question reveals it's non-local onsite outside {country}, answer honestly.
+Do NOT fill out forms for jobs that are clearly onsite outside {country} with no remote option. Check EARLY, save time."""
 
 
 def _build_salary_section(profile: dict) -> str:
@@ -129,37 +130,67 @@ def _build_salary_section(profile: dict) -> str:
     currency = comp.get("salary_currency", "USD")
     floor = comp["salary_expectation"]
     range_min = comp.get("salary_range_min", floor)
-    range_max = comp.get("salary_range_max", str(int(floor) + 20000) if floor.isdigit() else floor)
+    range_max = comp.get("salary_range_max", str(int(floor) + 500000) if floor.isdigit() else floor)
     conversion_note = comp.get("currency_conversion_note", "")
 
-    # Compute example hourly rates at 3 salary levels
-    try:
-        floor_int = int(floor)
-        examples = [
-            (f"${floor_int // 1000}K", floor_int // 2080),
-            (f"${(floor_int + 25000) // 1000}K", (floor_int + 25000) // 2080),
-            (f"${(floor_int + 55000) // 1000}K", (floor_int + 55000) // 2080),
-        ]
-        hourly_line = ", ".join(f"{sal} = ${hr}/hr" for sal, hr in examples)
-    except (ValueError, TypeError):
-        hourly_line = "Divide annual salary by 2080"
-
-    # Currency conversion guidance
-    if conversion_note:
-        convert_line = f"Posting is in a different currency? -> {conversion_note}"
+    # Currency symbol and display helpers
+    if currency == "INR":
+        symbol = "₹"
+        try:
+            floor_int = int(floor)
+            range_min_int = int(range_min)
+            range_max_int = int(range_max)
+            floor_l = floor_int // 100000
+            min_l = range_min_int // 100000
+            max_l = range_max_int // 100000
+            floor_monthly = floor_int // 12
+            hourly_line = f"Convert to monthly: divide annual by 12. Floor = {symbol}{floor_l}L/yr = {symbol}{floor_monthly:,}/month"
+            range_display = f"{symbol}{min_l}L-{symbol}{max_l}L {currency}"
+            floor_display = f"{symbol}{floor_l}L ({floor_int:,}) {currency}"
+            senior_min = f"{symbol}{max(floor_l, 25)}L {currency}"
+            midpoint_example = f"{symbol}30L"
+            range_example = f"{symbol}25L-{symbol}35L"
+            convert_line = conversion_note or "Posting in USD? -> Floor is approx $30,000 USD/yr. Target midpoint of their range if posted."
+        except (ValueError, TypeError):
+            hourly_line = "Divide annual salary by 12 for monthly"
+            range_display = f"{symbol}{range_min}-{symbol}{range_max} {currency}"
+            floor_display = f"{symbol}{floor} {currency}"
+            senior_min = f"{symbol}2500000 {currency}"
+            midpoint_example = f"{symbol}30L"
+            range_example = f"{symbol}25L-{symbol}35L"
+            convert_line = conversion_note or "Posting in USD? -> Target midpoint of their range."
     else:
-        convert_line = "Posting is in a different currency? -> Target midpoint of their range. Convert if needed."
+        symbol = "$"
+        try:
+            floor_int = int(floor)
+            range_min_int = int(range_min)
+            range_max_int = int(range_max)
+            hourly_line = f"{symbol}{floor_int // 2080}/hr at floor; divide any annual by 2080 for hourly"
+            range_display = f"{symbol}{range_min_int // 1000}K-{symbol}{range_max_int // 1000}K {currency}"
+            floor_display = f"{symbol}{floor_int // 1000}K {currency}"
+            senior_min = f"{symbol}110K {currency}"
+            midpoint_example = f"{symbol}140K"
+            range_example = f"{symbol}120K-{symbol}160K"
+            convert_line = conversion_note or "Posting is in a different currency? -> Target midpoint of their range. Convert if needed."
+        except (ValueError, TypeError):
+            hourly_line = "Divide annual salary by 2080"
+            range_display = f"{symbol}{range_min}-{symbol}{range_max} {currency}"
+            floor_display = f"{symbol}{floor} {currency}"
+            senior_min = f"{symbol}110K {currency}"
+            midpoint_example = f"{symbol}140K"
+            range_example = f"{symbol}120K-{symbol}160K"
+            convert_line = conversion_note or "Posting in a different currency? -> Target midpoint of their range."
 
     return f"""== SALARY (think, don't just copy) ==
-${floor} {currency} is the FLOOR. Never go below it. But don't always use it either.
+{floor_display} is the FLOOR. Never go below it. But don't always use it either.
 
 Decision tree:
-1. Job posting shows a range (e.g. "$120K-$160K")? -> Answer with the MIDPOINT ($140K).
-2. Title says Senior, Staff, Lead, Principal, Architect, or level II/III/IV? -> Minimum $110K {currency}. Use midpoint of posted range if higher.
+1. Job posting shows a range (e.g. "{range_example}")? -> Answer with the MIDPOINT ({midpoint_example}).
+2. Title says Senior, Staff, Lead, Principal, Architect, or level II/III/IV? -> Minimum {senior_min}. Use midpoint of posted range if higher.
 3. {convert_line}
-4. No salary info anywhere? -> Use ${floor} {currency}.
-5. Asked for a range? -> Give posted midpoint minus 10% to midpoint plus 10%. No posted range? -> "${range_min}-${range_max} {currency}".
-6. Hourly rate? -> Divide your annual answer by 2080. ({hourly_line})"""
+4. No salary info anywhere? -> Use {floor_display}.
+5. Asked for a range? -> "{range_display}".
+6. Monthly/hourly rate? -> {hourly_line}"""
 
 
 def _build_screening_section(profile: dict) -> str:
@@ -513,10 +544,14 @@ def build_prompt(job: dict, tailored_resume: str,
     else:
         submit_instruction = "BEFORE clicking Submit/Apply, take a snapshot and review EVERY field on the page. Verify all data matches the APPLICANT PROFILE and TAILORED RESUME -- name, email, phone, location, work auth, resume uploaded, cover letter if applicable. If anything is wrong or missing, fix it FIRST. Only click Submit after confirming everything is correct."
 
+    # Determine best URL to navigate to
+    raw_app_url = str(job.get("application_url", "")).strip()
+    job_target_url = job.get("url", "") if not raw_app_url or raw_app_url.lower() in ("none", "null", "") else raw_app_url
+
     prompt = f"""You are an autonomous job application agent. Your ONE mission: get this candidate an interview. You have all the information and tools. Think strategically. Act decisively. Submit the application.
 
 == JOB ==
-URL: {job.get('application_url') or job['url']}
+URL: {job_target_url}
 Title: {job['title']}
 Company: {job.get('site', 'Unknown')}
 Fit Score: {job.get('fit_score', 'N/A')}/10
