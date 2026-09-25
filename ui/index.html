@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ApplyPilot — AI Job Application Agent</title>
+  <meta name="description" content="ApplyPilot AI-powered autonomous job application pipeline dashboard." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #07090f;
+      --bg2:          #0d1117;
+      --bg3:          #161b22;
+      --card:         rgba(255,255,255,0.04);
+      --card-h:       rgba(255,255,255,0.07);
+      --border:       rgba(255,255,255,0.08);
+      --border-a:     rgba(0,212,255,0.35);
+      --accent:       #00d4ff;
+      --accent-dim:   rgba(0,212,255,0.10);
+      --ok:           #3fb950;
+      --warn:         #d29922;
+      --err:          #f85149;
+      --text:         #e6edf3;
+      --text2:        #b1bac4;
+      --muted:        #7d8590;
+      --r:            12px;
+      --r-sm:         8px;
+    }
+
+    html { font-size: 14px; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ambient glows */
+    body::before {
+      content:''; position:fixed; top:-40%; left:-15%; width:55%; height:55%;
+      background: radial-gradient(ellipse, rgba(0,212,255,0.06) 0%, transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    body::after {
+      content:''; position:fixed; bottom:-30%; right:-10%; width:50%; height:50%;
+      background: radial-gradient(ellipse, rgba(88,166,255,0.04) 0%, transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+
+    .layout {
+      position:relative; z-index:1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 24px 72px;
+    }
+
+    /* ── Header ── */
+    header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:32px; padding-bottom:20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { display:flex; align-items:center; gap:14px; }
+    .logo-icon {
+      width:44px; height:44px;
+      background: linear-gradient(135deg,#00d4ff,#0077ff);
+      border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:22px;
+      box-shadow: 0 0 24px rgba(0,212,255,0.35);
+    }
+    .logo-text h1 { font-size:1.25rem; font-weight:700; letter-spacing:-0.02em; }
+    .logo-text p  { font-size:0.72rem; color:var(--muted); margin-top:2px; }
+
+    .hdr-right { display:flex; align-items:center; gap:10px; }
+
+    .badge {
+      padding:5px 12px; border-radius:20px;
+      font-size:0.72rem; font-weight:500;
+      border:1px solid var(--border);
+      background:var(--bg3); color:var(--muted);
+      transition: all .25s;
+    }
+    .badge.ok   { color:var(--ok);   border-color:rgba(63,185,80,.3);  background:rgba(63,185,80,.08);  }
+    .badge.warn { color:var(--warn); border-color:rgba(210,153,34,.3); background:rgba(210,153,34,.08); }
+
+    .status-pill {
+      display:flex; align-items:center; gap:6px;
+      padding:5px 12px; border-radius:20px;
+      font-size:0.75rem; font-weight:500;
+      background:var(--bg3); border:1px solid var(--border);
+    }
+    .dot {
+      width:7px; height:7px; border-radius:50%;
+      background:var(--muted); transition:all .3s;
+    }
+    .status-pill.ready   .dot { background:var(--ok);   box-shadow:0 0 6px var(--ok);   }
+    .status-pill.running .dot { background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 1s infinite; }
+    .status-pill.error   .dot { background:var(--err);  box-shadow:0 0 6px var(--err);  }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Section ── */
+    .sec { margin-bottom:26px; }
+    .sec-title {
+      font-size:0.68rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+      color:var(--muted); margin-bottom:12px;
+    }
+
+    /* ── Stage cards ── */
+    .stages {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+    }
+    @media(max-width:680px){ .stages{ grid-template-columns:repeat(2,1fr); } }
+
+    .stage-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:var(--r); padding:16px;
+      cursor:pointer; transition:all .2s; position:relative; overflow:hidden;
+    }
+    .stage-card:hover { background:var(--card-h); border-color:var(--border-a); transform:translateY(-2px); }
+    .stage-card.running { border-color:var(--border-a); background:var(--accent-dim); }
+    .stage-card::before {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg,transparent,rgba(0,212,255,.04));
+      opacity:0; transition:opacity .2s;
+    }
+    .stage-card:hover::before { opacity:1; }
+
+    .s-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:9px; }
+    .s-icon { font-size:1.5rem; line-height:1; }
+    .s-dot {
+      width:9px; height:9px; border-radius:50%;
+      background:var(--bg3); border:1px solid var(--border); margin-top:2px;
+      transition:all .3s;
+    }
+    .s-dot.done    { background:var(--ok);     border-color:var(--ok);     }
+    .s-dot.running { background:var(--accent); border-color:var(--accent); animation:pulse 1s infinite; }
+    .s-dot.error   { background:var(--err);    border-color:var(--err);    }
+
+    .s-name { font-size:0.875rem; font-weight:600; margin-bottom:4px; }
+    .s-desc { font-size:0.7rem; color:var(--muted); line-height:1.45; }
+
+    .s-run {
+      margin-top:11px; width:100%; padding:5px 0;
+      border-radius:6px; border:1px solid var(--border);
+      background:transparent; color:var(--text2);
+      font-size:0.7rem; font-family:inherit; cursor:pointer;
+      transition:all .15s;
+    }
+    .s-run:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+    .s-run:disabled { opacity:.35; cursor:not-allowed; }
+
+    /* ── Buttons ── */
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+
+    .btn {
+      display:inline-flex; align-items:center; gap:7px;
+      padding:10px 20px; border-radius:var(--r-sm);
+      border:1px solid transparent;
+      font-family:inherit; font-size:0.82rem; font-weight:500;
+      cursor:pointer; transition:all .2s; white-space:nowrap; user-select:none;
+    }
+    .btn:disabled { opacity:.35; cursor:not-allowed; }
+
+    .btn-primary {
+      background:linear-gradient(135deg,#00d4ff,#0096ff);
+      color:#000; font-weight:700;
+      box-shadow:0 0 22px rgba(0,212,255,.28);
+    }
+    .btn-primary:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 28px rgba(0,212,255,.45); }
+
+    .btn-sec   { background:var(--card); color:var(--text); border-color:var(--border); }
+    .btn-sec:hover:not(:disabled) { background:var(--card-h); border-color:rgba(0,212,255,.25); }
+
+    .btn-danger { background:rgba(248,81,73,.1); color:var(--err); border-color:rgba(248,81,73,.25); }
+    .btn-danger:hover:not(:disabled) { background:rgba(248,81,73,.2); }
+
+    /* ── Options row ── */
+    .opts {
+      display:flex; flex-wrap:wrap; align-items:center; gap:16px;
+      padding:12px 16px;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:var(--r-sm);
+    }
+    .opt-lbl { font-size:0.73rem; color:var(--muted); }
+    .opt-num {
+      width:58px; padding:4px 8px; text-align:center;
+      background:var(--bg3); border:1px solid var(--border);
+      border-radius:6px; color:var(--text);
+      font-family:'JetBrains Mono',monospace; font-size:0.8rem;
+    }
+    .opt-num:focus { outline:none; border-color:var(--accent); }
+    .opt-sep { width:1px; height:18px; background:var(--border); }
+    .opt-chk { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.73rem; color:var(--text2); user-select:none; }
+    .opt-chk input { width:14px; height:14px; accent-color:var(--accent); cursor:pointer; }
+
+    /* ── Terminal ── */
+    .term-wrap {
+      background:#010409;
+      border:1px solid var(--border);
+      border-radius:var(--r); overflow:hidden;
+    }
+    .term-hdr {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px;
+      background:var(--bg3); border-bottom:1px solid var(--border);
+    }
+    .term-title { display:flex; align-items:center; gap:10px; font-size:0.72rem; color:var(--muted); }
+    .tdots { display:flex; gap:5px; }
+    .tdot { width:11px; height:11px; border-radius:50%; }
+    .tdot:nth-child(1){background:#ff5f57;}
+    .tdot:nth-child(2){background:#febc2e;}
+    .tdot:nth-child(3){background:#28c840;}
+    .term-clr {
+      padding:3px 10px; border-radius:4px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--muted); font-size:0.7rem; font-family:inherit; cursor:pointer;
+      transition:all .15s;
+    }
+    .term-clr:hover { color:var(--text); border-color:rgba(255,255,255,.2); }
+    .term-body {
+      height:300px; overflow-y:auto; padding:16px;
+      font-family:'JetBrains Mono','Consolas',monospace;
+      font-size:0.77rem; line-height:1.65;
+    }
+    .term-body::-webkit-scrollbar { width:4px; }
+    .term-body::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:2px; }
+
+    .tl { white-space:pre-wrap; word-break:break-all; }
+    .tc { color:var(--accent); }
+    .ts { color:var(--ok); }
+    .tw { color:var(--warn); }
+    .te { color:var(--err); }
+    .ti { color:var(--text2); }
+    .tm { color:var(--muted); }
+    .td { color:#c9d1d9; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🚀</div>
+      <div class="logo-text">
+        <h1>ApplyPilot</h1>
+        <p>AI-powered autonomous job application agent</p>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <span id="env-badge" class="badge">Checking config…</span>
+      <div id="status-pill" class="status-pill">
+        <div class="dot" id="dot"></div>
+        <span id="status-txt">Idle</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Pipeline stages -->
+  <div class="sec">
+    <div class="sec-title">Pipeline Stages</div>
+    <div class="stages" id="stages"></div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="sec">
+    <div class="sec-title">Quick Actions</div>
+    <div class="actions">
+      <button class="btn btn-primary" id="b-run"    onclick="runAll()">▶ Run All Stages</button>
+      <button class="btn btn-sec"     id="b-apply"  onclick="doApply()">🤖 Auto-Apply</button>
+      <button class="btn btn-sec"     id="b-doc"    onclick="doDoctor()">🩺 Doctor Check</button>
+      <button class="btn btn-sec"     id="b-status" onclick="doStatus()">📊 Status</button>
+      <button class="btn btn-danger"  id="b-stop"   onclick="doStop()" disabled>⏹ Stop</button>
+    </div>
+    <div class="opts">
+      <span class="opt-lbl">Workers</span>
+      <input class="opt-num" type="number" id="workers"   value="1" min="1" max="8" />
+      <div class="opt-sep"></div>
+      <label class="opt-chk"><input type="checkbox" id="dry-run"  /> Dry run</label>
+      <div class="opt-sep"></div>
+      <label class="opt-chk"><input type="checkbox" id="headless" /> Headless browser</label>
+      <div class="opt-sep"></div>
+      <span class="opt-lbl">Min score</span>
+      <input class="opt-num" type="number" id="min-score" value="7" min="1" max="10" />
+    </div>
+  </div>
+
+  <!-- Terminal -->
+  <div class="sec">
+    <div class="sec-title">Live Output</div>
+    <div class="term-wrap">
+      <div class="term-hdr">
+        <div class="term-title">
+          <div class="tdots">
+            <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+          </div>
+          applypilot — terminal
+        </div>
+        <button class="term-clr" onclick="clearTerm()">Clear</button>
+      </div>
+      <div class="term-body" id="term">
+        <div class="tl tm">ApplyPilot UI ready. Choose an action above.</div>
+        <div class="tl tm">──────────────────────────────────────────────</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+const STAGES = [
+  {id:'discover',    icon:'🔍', name:'Discover',     desc:'Scrape job boards & career sites',      cmd:'run',    args:['discover']},
+  {id:'enrich',      icon:'📋', name:'Enrich',       desc:'Fetch full job descriptions',            cmd:'run',    args:['enrich']},
+  {id:'score',       icon:'⭐', name:'Score',        desc:'AI rates every job 1-10 vs your resume',cmd:'run',    args:['score']},
+  {id:'tailor',      icon:'✂️', name:'Tailor',       desc:'AI rewrites your resume per job',        cmd:'run',    args:['tailor']},
+  {id:'coverletter', icon:'📝', name:'Cover Letter', desc:'Generates targeted cover letters',       cmd:'run',    args:['coverletter']},
+  {id:'apply',       icon:'🚀', name:'Auto-Apply',   desc:'Browser-driven form submission',         cmd:'apply',  args:[]},
+];
+
+let running = false;
+
+// Build stage cards
+const grid = document.getElementById('stages');
+STAGES.forEach(s => {
+  grid.innerHTML += `
+  <div class="stage-card" id="card-${s.id}">
+    <div class="s-top">
+      <div class="s-icon">${s.icon}</div>
+      <div class="s-dot" id="dot-${s.id}"></div>
+    </div>
+    <div class="s-name">${s.name}</div>
+    <div class="s-desc">${s.desc}</div>
+    <button class="s-run" id="sbtn-${s.id}" onclick="runStage('${s.id}')">▷ Run this stage</button>
+  </div>`;
+});
+
+// Terminal helpers
+const term = document.getElementById('term');
+function addLine(txt, cls='td') {
+  const d = document.createElement('div');
+  d.className = 'tl ' + cls;
+  d.textContent = txt;
+  term.appendChild(d);
+  term.scrollTop = term.scrollHeight;
+}
+function clearTerm() { term.innerHTML = ''; }
+
+// Status helpers
+function setStatus(state, label) {
+  const pill = document.getElementById('status-pill');
+  pill.className = 'status-pill ' + state;
+  document.getElementById('status-txt').textContent = label;
+}
+function setStageDot(id, state) {
+  const el = document.getElementById('dot-' + id);
+  if (el) el.className = 's-dot ' + state;
+}
+function setCard(id, on) {
+  const el = document.getElementById('card-' + id);
+  if (el) el.classList.toggle('running', on);
+}
+
+function setRunning(on) {
+  running = on;
+  ['b-run','b-apply','b-doc','b-status'].forEach(id => {
+    document.getElementById(id).disabled = on;
+  });
+  document.getElementById('b-stop').disabled = !on;
+  document.querySelectorAll('.s-run').forEach(b => b.disabled = on);
+}
+
+// Main runner — SSE via fetch + ReadableStream
+async function exec(command, args=[], stageId=null) {
+  if (running) return;
+  setRunning(true);
+  setStatus('running','Running…');
+  if (stageId) { setStageDot(stageId,'running'); setCard(stageId,true); }
+
+  const label = 'applypilot ' + command + (args.length ? ' '+args.join(' '):'');
+  addLine('');
+  addLine('$ ' + label, 'tc');
+
+  let hasErr = false;
+  try {
+    const res = await fetch('/run', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({command, args})
+    });
+    const reader = res.body.getReader();
+    const dec    = new TextDecoder();
+    let buf = '';
+    outer:
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream:true});
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue;
+        let data;
+        try { data = JSON.parse(part.slice(6)); } catch { continue; }
+        if (data === '__DONE__') break outer;
+        const low = data.toLowerCase();
+        let cls = 'td';
+        if (low.includes('[error]') || low.startsWith('error'))  { cls='te'; hasErr=true; }
+        else if (low.includes('[warn]') || low.includes('warning')) cls='tw';
+        else if (low.includes('[ok]')   || low.includes('success')) cls='ts';
+        else if (low.includes('[info]'))                             cls='ti';
+        addLine(data, cls);
+      }
+    }
+    addLine('');
+    if (hasErr) { addLine('✗ Completed with errors.','te'); setStatus('error','Error'); if(stageId){setStageDot(stageId,'error');} }
+    else        { addLine('✓ Done.','ts');                  setStatus('ready','Ready'); if(stageId){setStageDot(stageId,'done');} }
+  } catch(e) {
+    addLine('[ERROR] ' + e.message, 'te');
+    setStatus('error','Error');
+    if (stageId) setStageDot(stageId,'error');
+  }
+  if (stageId) setCard(stageId, false);
+  setRunning(false);
+}
+
+// Collect run options
+function runOpts() {
+  const a = [];
+  const w = parseInt(document.getElementById('workers').value);
+  if (w > 1) a.push('--workers', w);
+  if (document.getElementById('dry-run').checked)  a.push('--dry-run');
+  const ms = parseInt(document.getElementById('min-score').value);
+  if (ms !== 7) a.push('--min-score', ms);
+  return a;
+}
+function applyOpts() {
+  const a = [];
+  const w = parseInt(document.getElementById('workers').value);
+  if (w > 1) a.push('--workers', w);
+  if (document.getElementById('dry-run').checked)  a.push('--dry-run');
+  if (document.getElementById('headless').checked) a.push('--headless');
+  return a;
+}
+
+function runAll()   { exec('run',   runOpts(),   null); }
+function doApply()  { exec('apply', applyOpts(), 'apply'); }
+function doDoctor() { exec('doctor', [],          null); }
+function doStatus() { exec('status', [],          null); }
+
+function runStage(id) {
+  const s = STAGES.find(x => x.id === id);
+  if (!s) return;
+  const extra = (id === 'apply') ? applyOpts() : runOpts().filter(a => a !== 'discover' && a !== 'enrich' && a !== 'score' && a !== 'tailor' && a !== 'coverletter');
+  exec(s.cmd, [...s.args, ...extra], id);
+}
+
+async function doStop() {
+  try {
+    const r = await fetch('/stop', {method:'POST'});
+    const d = await r.json();
+    addLine(d.message, d.ok ? 'tw' : 'tm');
+    if (d.ok) { setStatus('idle','Idle'); setRunning(false); }
+  } catch(e) { addLine('[ERROR] '+e.message,'te'); }
+}
+
+// Env check on load
+async function checkEnv() {
+  try {
+    const r = await fetch('/env-check');
+    const d = await r.json();
+    const badge = document.getElementById('env-badge');
+    if (d.env_exists && d.profile_exists) {
+      badge.textContent = '✓ Config ready';
+      badge.className   = 'badge ok';
+      setStatus('ready','Ready');
+    } else {
+      badge.textContent = '⚠ Config missing';
+      badge.className   = 'badge warn';
+      addLine('[WARN]  ~/.applypilot config incomplete.', 'tw');
+      addLine('        Run applypilot init or re-run setup.bat with applypilot_content/ present.','tm');
+    }
+    if (!d.ap_exe_ok) {
+      addLine('[ERROR] applypilot executable not found in venv. Did setup.bat complete?','te');
+      setStatus('error','Error');
+    }
+  } catch {
+    document.getElementById('env-badge').textContent = 'Server offline';
+  }
+}
+checkEnv();
+</script>
+</body>
+</html>
