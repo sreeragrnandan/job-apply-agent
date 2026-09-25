@@ -37,6 +37,9 @@ echo.
 REM ── 1. Prerequisites ─────────────────────────────────────────────────────────
 echo [INFO]  Checking prerequisites...
 
+REM Add user local Python, Node, and npm directories to PATH if not already present
+set "PATH=%LOCALAPPDATA%\Programs\Python\Python313;%LOCALAPPDATA%\Programs\Python\Python313\Scripts;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
+
 REM Check Python
 where python >nul 2>&1
 if errorlevel 1 (
@@ -66,7 +69,18 @@ if errorlevel 1 (
 )
 echo [OK]    pip found
 
-REM Check Node.js (optional, needed for auto-apply)
+REM Check Node.js (needed for auto-apply)
+set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
+where node >nul 2>&1
+if errorlevel 1 (
+    echo [INFO]  Node.js not found. Attempting automatic installation via winget...
+    where winget >nul 2>&1
+    if not errorlevel 1 (
+        winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
+        set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
+    )
+)
+
 where node >nul 2>&1
 if errorlevel 1 (
     echo [WARN]  Node.js not found. Auto-apply will not work without it.
@@ -93,14 +107,14 @@ echo [OK]    Virtual environment activated
 REM ── 3. Install Python dependencies ───────────────────────────────────────────
 echo.
 echo [INFO]  Installing applypilot (editable/dev mode)...
-python -m pip install --upgrade pip --quiet
-python -m pip install -e ".[dev]" --quiet
+python -m pip install --upgrade pip --no-warn-script-location
+python -m pip install -e ".[dev]" --no-warn-script-location
 echo [OK]    applypilot installed
 
 REM python-jobspy workaround (pins numpy in metadata, use --no-deps)
 echo [INFO]  Installing python-jobspy (--no-deps workaround)...
-python -m pip install --no-deps python-jobspy --quiet
-python -m pip install pydantic tls-client requests markdownify regex --quiet
+python -m pip install --no-deps python-jobspy --no-warn-script-location
+python -m pip install pydantic tls-client requests markdownify regex --no-warn-script-location
 echo [OK]    python-jobspy installed
 
 REM ── 4. Playwright browsers ───────────────────────────────────────────────────
@@ -111,12 +125,13 @@ echo [OK]    Playwright Chromium installed
 
 REM ── 5. Claude Code CLI (auto-apply) ──────────────────────────────────────────
 echo.
+set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
 where node >nul 2>&1
 if not errorlevel 1 (
     where claude >nul 2>&1
     if errorlevel 1 (
         echo [INFO]  Installing Claude Code CLI...
-        npm install -g @anthropic-ai/claude-code
+        call npm install -g --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code
         if errorlevel 1 (
             echo [WARN]  Could not install Claude Code CLI. Get it from https://claude.ai/code
         ) else (
