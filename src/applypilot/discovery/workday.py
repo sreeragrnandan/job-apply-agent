@@ -22,6 +22,7 @@ import yaml
 from applypilot import config
 from applypilot.config import CONFIG_DIR
 from applypilot.database import get_connection, init_db
+from applypilot.discovery.company_filter import is_title_blocked
 
 log = logging.getLogger(__name__)
 
@@ -344,15 +345,21 @@ def store_results(conn: sqlite3.Connection, jobs: list[dict], employers: dict) -
         detail_scraped_at = now if full_description else None
         detail_error = job.get("detail_error")
 
+        title = job.get("title")
+        blocked, reason = is_title_blocked(title)
+        if blocked:
+            log.debug("Workday skipping '%s': %s", title, reason)
+            continue
+
         site = job.get("employer_name", "Corporate")
         strategy = "workday_api"
 
         try:
             conn.execute(
-                "INSERT INTO jobs (url, title, salary, description, location, site, strategy, "
+                "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, "
                 "discovered_at, full_description, application_url, detail_scraped_at, detail_error) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (url, job.get("title"), None, short_desc, job.get("location"),
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (url, title, site, None, short_desc, job.get("location"),
                  site, strategy, now, full_description, url, detail_scraped_at, detail_error),
             )
             new += 1

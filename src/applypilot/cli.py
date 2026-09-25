@@ -453,5 +453,69 @@ def doctor() -> None:
     console.print()
 
 
+@app.command("filter-cleanup")
+def filter_cleanup(
+    delete: bool = typer.Option(False, "--delete", "-d", help="Delete blocked jobs instead of only previewing/penalizing them."),
+    penalize: bool = typer.Option(True, "--penalize", "-p", help="Set fit_score=1 on blocked jobs so they are never applied to."),
+) -> None:
+    """Audit existing jobs in the database against target product company criteria."""
+    _bootstrap()
+
+    from applypilot.database import get_connection
+    from applypilot.discovery.company_filter import is_job_allowed
+
+    conn = get_connection()
+    rows = conn.execute("SELECT url, title, company, site, description, full_description, fit_score FROM jobs").fetchall()
+
+    if not rows:
+        console.print("[dim]No jobs found in database.[/dim]")
+        return
+
+    blocked_jobs: list[tuple[dict, str]] = []
+    for r in rows:
+        title = r["title"]
+        company = r["company"] or (r["site"] if r["site"] and r["site"].lower() not in ("indeed", "linkedin", "glassdoor", "google") else "")
+        desc = r["full_description"] or r["description"]
+        allowed, reason = is_job_allowed(title, company, desc)
+        if not allowed:
+            blocked_jobs.append((dict(r), reason))
+
+    console.print(f"\n[bold]Company & Role Filter Audit[/bold] (Evaluated {len(rows)} jobs in DB)")
+
+    if not blocked_jobs:
+        console.print("[green]✓ All jobs match your target product company criteria![/green]\n")
+        return
+
+    table = Table(title=f"Flagged Non-Product / Agency Jobs ({len(blocked_jobs)})", show_header=True, header_style="bold red")
+    table.add_column("Title", style="bold")
+    table.add_column("Company / Site")
+    table.add_column("Rejection Reason", style="yellow")
+    table.add_column("Current Score", justify="center")
+
+    for job, reason in blocked_jobs:
+        table.add_row(
+            (job.get("title") or "Untitled")[:40],
+            (job.get("company") or job.get("site") or "Unknown")[:25],
+            reason[:60],
+            str(job.get("fit_score") or "--"),
+        )
+
+    console.print(table)
+
+    if delete:
+        for job, _ in blocked_jobs:
+            conn.execute("DELETE FROM jobs WHERE url = ?", (job["url"],))
+        conn.commit()
+        console.print(f"[bold red]Deleted {len(blocked_jobs)} blocked jobs from database.[/bold red]\n")
+    elif penalize:
+        for job, reason in blocked_jobs:
+            conn.execute(
+                "UPDATE jobs SET fit_score = 1, score_reasoning = ? WHERE url = ?",
+                (f"Filtered out: {reason}", job["url"]),
+            )
+        conn.commit()
+        console.print(f"[bold yellow]Updated {len(blocked_jobs)} jobs with fit_score=1 (Filter rejection). They will be skipped by tailor and apply stages.[/bold yellow]\n")
+
+
 if __name__ == "__main__":
     app()

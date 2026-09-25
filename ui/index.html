@@ -1501,6 +1501,7 @@ async function loadJobs() {
       else if (job.apply_status === 'in_progress') tags.push('<span class="tag-pill tag-inprog">In Progress</span>');
 
       const meta = [];
+      if (job.company) meta.push(`<span class="job-meta-item" style="color:var(--cyan); font-weight:600;">🏢 ${escapeHtml(job.company)}</span>`);
       if (job.location) meta.push(`<span class="job-meta-item">📍 ${escapeHtml(job.location)}</span>`);
       if (job.salary) meta.push(`<span class="job-meta-item">💰 ${escapeHtml(job.salary)}</span>`);
       if (job.discovered_at) {
@@ -1573,6 +1574,7 @@ async function loadApplied() {
             </div>
             <div class="app-card-title">${escapeHtml(job.title || 'Untitled')}</div>
             <div class="app-card-meta">
+              ${job.company ? `<span style="font-weight:600; color:var(--cyan);">🏢 ${escapeHtml(job.company)}</span><span>•</span>` : ''}
               <span>📍 ${escapeHtml(job.location || 'Remote')}</span>
               <span>•</span>
               ${statusTag}
@@ -1619,7 +1621,7 @@ async function openJobModal(url, defaultTab='analysis') {
     const j = data.job;
     currentModalJob = j;
 
-    document.getElementById('m-title').textContent = j.title || 'Untitled Job';
+    document.getElementById('m-title').textContent = (j.title || 'Untitled Job') + (j.company ? ' • 🏢 ' + j.company : '');
     document.getElementById('m-location').textContent = j.location ? '📍 ' + j.location : '';
     document.getElementById('m-salary').textContent = j.salary ? '💰 ' + j.salary : '';
     document.getElementById('m-link').href = j.url || '#';

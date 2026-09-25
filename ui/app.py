@@ -291,9 +291,9 @@ def api_jobs():
         params = []
 
         if q:
-            clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)")
+            clauses.append("(LOWER(title) LIKE ? OR LOWER(COALESCE(company, '')) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)")
             wild = f"%{q}%"
-            params.extend([wild, wild, wild])
+            params.extend([wild, wild, wild, wild])
 
         if site and site != 'all':
             clauses.append("LOWER(site) = LOWER(?)")
@@ -332,7 +332,7 @@ def api_jobs():
         total_count = conn.execute(count_sql, params).fetchone()[0]
 
         data_sql = f"""
-            SELECT url, title, salary, location, site, strategy, discovered_at,
+            SELECT url, title, company, salary, location, site, strategy, discovered_at,
                    detail_scraped_at, fit_score, score_reasoning, scored_at,
                    tailored_resume_path, tailored_at, cover_letter_path, cover_letter_at,
                    applied_at, apply_status, apply_attempts, last_attempted_at,

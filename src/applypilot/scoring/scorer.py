@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from applypilot.config import RESUME_PATH, load_profile
 from applypilot.database import get_connection, get_jobs_by_stage
+from applypilot.discovery.company_filter import is_job_allowed, get_company_tier
 from applypilot.llm import get_client
 
 log = logging.getLogger(__name__)
@@ -20,25 +21,27 @@ log = logging.getLogger(__name__)
 
 # ── Scoring Prompt ────────────────────────────────────────────────────────
 
-SCORE_PROMPT = """You are a job fit evaluator. Given a candidate's resume and a job description, score how well the candidate fits the role.
+SCORE_PROMPT = """You are a job fit evaluator for a candidate targeting top product-based companies and high-growth product startups. Given a candidate's resume and a job description, score how well the candidate fits the role.
 
 SCORING CRITERIA:
-- 9-10: Perfect match. Candidate has direct experience in nearly all required skills and qualifications.
-- 7-8: Strong match. Candidate has most required skills, minor gaps easily bridged.
-- 5-6: Moderate match. Candidate has some relevant skills but missing key requirements.
-- 3-4: Weak match. Significant skill gaps, would need substantial ramp-up.
-- 1-2: Poor match. Completely different field or experience level.
+- 9-10: Perfect match. Candidate has direct experience in nearly all required skills at a strong product organization or top startup.
+- 7-8: Strong match. Candidate has most required technical skills and domain strengths, minor gaps easily bridged.
+- 5-6: Moderate match. Candidate has some relevant skills, but missing key core technologies or experience.
+- 3-4: Weak match. Significant skill gaps, or role appears to be a staffing agency, IT consultancy, or client services vendor.
+- 1-2: Poor match. Completely different field, or pure IT services / body shop / subcontracting role.
 
 IMPORTANT FACTORS:
-- Weight technical skills heavily (programming languages, frameworks, tools)
-- Consider transferable experience (automation, scripting, API work)
-- Factor in the candidate's project experience
+- TARGET ROLES: Candidate ONLY targets top product-based tech companies (Tier 1/Tier 2 like Google, Uber, Stripe, Atlassian) and top product startups (Series B+, unicorns in SaaS, Cloud, DevTools, Fintech, AI/ML, Healthtech, E-commerce, Edtech, Cybersecurity).
+- HEAVY PENALTY FOR SERVICES / CONSULTING / STAFFING: If the company or job description indicates an IT service firm, consultancy, staffing vendor, C2C, or third-party client project, heavily penalize the score (max 1-3).
+- PRODUCT FOCUS BONUS: Reward jobs building proprietary core products, scalable cloud platforms, modern distributed systems, and real tech engineering.
+- Weight technical skills heavily (programming languages, frameworks, distributed systems, databases, APIs)
+- Factor in the candidate's real engineering and project depth
 - Be realistic about experience level vs. job requirements (years of experience, seniority)
 
 RESPOND IN EXACTLY THIS FORMAT (no other text):
 SCORE: [1-10]
 KEYWORDS: [comma-separated ATS keywords from the job description that match or could match the candidate]
-REASONING: [2-3 sentences explaining the score]"""
+REASONING: [2-3 sentences explaining the score, explicitly noting product company fit]"""
 
 
 def _parse_score_response(response: str) -> dict:
@@ -75,16 +78,32 @@ def score_job(resume_text: str, job: dict) -> dict:
 
     Args:
         resume_text: The candidate's full resume text.
-        job: Job dict with keys: title, site, location, full_description.
+        job: Job dict with keys: title, company, site, location, full_description.
 
     Returns:
         {"score": int, "keywords": str, "reasoning": str}
     """
+    company = job.get("company") or job.get("site") or "Unknown"
+    title = job.get("title") or ""
+    full_desc = job.get("full_description") or job.get("description") or ""
+
+    # Fast-reject blocked companies, staffing agencies, or excluded titles without wasting LLM tokens
+    allowed, block_reason = is_job_allowed(title, company, full_desc)
+    if not allowed:
+        log.info("Fast-rejecting '%s' at '%s': %s", title, company, block_reason)
+        return {
+            "score": 1,
+            "keywords": "",
+            "reasoning": f"Filtered: {block_reason}",
+        }
+
+    company_tier = get_company_tier(company)
+
     job_text = (
-        f"TITLE: {job['title']}\n"
-        f"COMPANY: {job['site']}\n"
+        f"TITLE: {title}\n"
+        f"COMPANY: {company} (Tier: {company_tier})\n"
         f"LOCATION: {job.get('location', 'N/A')}\n\n"
-        f"DESCRIPTION:\n{(job.get('full_description') or '')[:6000]}"
+        f"DESCRIPTION:\n{full_desc[:6000]}"
     )
 
     messages = [

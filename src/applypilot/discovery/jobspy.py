@@ -16,6 +16,7 @@ from jobspy import scrape_jobs
 
 from applypilot import config
 from applypilot.database import get_connection, init_db, store_jobs
+from applypilot.discovery.company_filter import is_job_allowed, get_filter_config
 
 log = logging.getLogger(__name__)
 
@@ -117,11 +118,12 @@ def _location_ok(location: str | None, accept: list[str], reject: list[str]) -> 
 
 # -- DB storage (JobSpy DataFrame -> SQLite) ---------------------------------
 
-def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tuple[int, int]:
+def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str, filter_cfg: dict | None = None) -> tuple[int, int]:
     """Store JobSpy DataFrame results into the DB. Returns (new, existing)."""
     now = datetime.now(timezone.utc).isoformat()
     new = 0
     existing = 0
+    filter_cfg = filter_cfg or get_filter_config()
 
     for _, row in df.iterrows():
         url = str(row.get("job_url", ""))
@@ -131,6 +133,13 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
         title = str(row.get("title", "")) if str(row.get("title", "")) != "nan" else None
         company = str(row.get("company", "")) if str(row.get("company", "")) != "nan" else None
         location_str = str(row.get("location", "")) if str(row.get("location", "")) != "nan" else None
+        description = str(row.get("description", "")) if str(row.get("description", "")) != "nan" else None
+
+        # Filter out IT services, staffing agencies, BPOs, unwanted titles
+        allowed, reason = is_job_allowed(title, company, description, filter_cfg)
+        if not allowed:
+            log.debug("Skipping '%s' at '%s': %s", title, company, reason)
+            continue
 
         # Build salary string from min/max
         salary = None
@@ -146,7 +155,6 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
             if interval:
                 salary += f"/{interval}"
 
-        description = str(row.get("description", "")) if str(row.get("description", "")) != "nan" else None
         site_name = str(row.get("site", source_label))
         is_remote = row.get("is_remote", False)
 
@@ -168,10 +176,10 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str) -> tup
 
         try:
             conn.execute(
-                "INSERT INTO jobs (url, title, salary, description, location, site, strategy, discovered_at, "
+                "INSERT INTO jobs (url, title, company, salary, description, location, site, strategy, discovered_at, "
                 "full_description, application_url, detail_scraped_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (url, title, salary, description, location_str, site_label, strategy, now,
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (url, title, company, salary, description, location_str, site_label, strategy, now,
                  full_description, apply_url, detail_scraped_at),
             )
             new += 1
@@ -195,6 +203,7 @@ def _run_one_search(
     accept_locs: list[str],
     reject_locs: list[str],
     glassdoor_map: dict,
+    search_cfg: dict | None = None,
 ) -> dict:
     """Run a single search query and store results in DB."""
     s = search
@@ -270,18 +279,34 @@ def _run_one_search(
 
     # Filter by location before storing
     before = len(df)
-    df = df[df.apply(lambda row: _location_ok(
+    loc_mask = df.apply(lambda row: _location_ok(
         str(row.get("location", "")) if str(row.get("location", "")) != "nan" else None,
         accept_locs, reject_locs,
-    ), axis=1)]
-    filtered = before - len(df)
+    ), axis=1)
+    df = df[loc_mask]
+    loc_filtered = before - len(df)
+
+    # Filter by company, title, and staffing red flags
+    filter_cfg = get_filter_config(search_cfg)
+    before_comp = len(df)
+    comp_mask = df.apply(lambda row: is_job_allowed(
+        title=str(row.get("title", "")) if str(row.get("title", "")) != "nan" else None,
+        company=str(row.get("company", "")) if str(row.get("company", "")) != "nan" else None,
+        description=str(row.get("description", "")) if str(row.get("description", "")) != "nan" else None,
+        filter_cfg=filter_cfg,
+    )[0], axis=1)
+    df = df[comp_mask]
+    comp_filtered = before_comp - len(df)
+    filtered = loc_filtered + comp_filtered
 
     conn = get_connection()
-    new, existing = store_jobspy_results(conn, df, s["query"])
+    new, existing = store_jobspy_results(conn, df, s["query"], filter_cfg=filter_cfg)
 
     msg = f"[{label}] {before} results -> {new} new, {existing} dupes"
-    if filtered:
-        msg += f", {filtered} filtered (location)"
+    if loc_filtered:
+        msg += f", {loc_filtered} filtered (location)"
+    if comp_filtered:
+        msg += f", {comp_filtered} filtered (company/title blocklist)"
     log.info(msg)
 
     return {"new": new, "existing": existing, "errors": 0, "filtered": filtered, "total": before, "label": label}
@@ -412,6 +437,7 @@ def _full_crawl(
             s, sites, results_per_site, hours_old,
             proxy_config, defaults, max_retries,
             accept_locs, reject_locs, glassdoor_map,
+            search_cfg=search_cfg,
         )
         completed += 1
         total_new += result["new"]
