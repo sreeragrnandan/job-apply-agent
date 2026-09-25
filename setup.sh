@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  ApplyPilot - One-Click Setup Script
-#  Clones and fully sets up the job-apply-agent on any new machine.
 #
-#  Usage:
+#  Run this from inside the cloned repo:
 #    chmod +x setup.sh && ./setup.sh
 #
 #  Tip: Place an 'applypilot_content/' folder next to this script
@@ -34,11 +33,9 @@ success() { echo -e "${GREEN}[OK]${RESET}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
 error()   { echo -e "${RED}[ERROR]${RESET} $*"; exit 1; }
 
-REPO_URL="https://github.com/sreeragrnandan/job-apply-agent.git"
-REPO_DIR="job-apply-agent"
 NODE_MIN=18
 
-# Resolve the directory where this script lives (works even if called from elsewhere)
+# Resolve the directory where this script lives
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTENT_DIR="${SCRIPT_DIR}/applypilot_content"
 
@@ -50,9 +47,6 @@ echo ""
 
 # ── 1. Prerequisites ──────────────────────────────────────────────────────────
 info "Checking prerequisites..."
-
-command -v git &>/dev/null    || error "git not found. Install from https://git-scm.com"
-success "git found: $(git --version)"
 
 command -v python3 &>/dev/null || error "python3 not found. Install Python 3.11+ from https://python.org"
 
@@ -79,22 +73,7 @@ else
   warn "Node.js not found. Auto-apply will not work without it. Install from https://nodejs.org"
 fi
 
-# ── 2. Clone or update repo ───────────────────────────────────────────────────
-echo ""
-info "Setting up repository..."
-
-if [ -d "${REPO_DIR}" ]; then
-  warn "Directory '${REPO_DIR}' already exists. Pulling latest changes..."
-  cd "${REPO_DIR}"
-  git pull origin main 2>/dev/null || git pull origin master
-else
-  git clone "${REPO_URL}" "${REPO_DIR}"
-  cd "${REPO_DIR}"
-fi
-
-success "Repository ready at: $(pwd)"
-
-# ── 3. Python virtual environment ─────────────────────────────────────────────
+# ── 2. Python virtual environment ─────────────────────────────────────────────
 echo ""
 info "Setting up Python virtual environment..."
 
@@ -109,7 +88,7 @@ fi
 source .venv/bin/activate
 success "Virtual environment activated"
 
-# ── 4. Install Python dependencies ────────────────────────────────────────────
+# ── 3. Install Python dependencies ────────────────────────────────────────────
 echo ""
 info "Installing applypilot (editable/dev mode)..."
 pip install --upgrade pip --quiet
@@ -123,13 +102,13 @@ pip install --no-deps python-jobspy --quiet
 pip install pydantic tls-client requests markdownify regex --quiet
 success "python-jobspy installed"
 
-# ── 5. Playwright browsers ────────────────────────────────────────────────────
+# ── 4. Playwright browsers ────────────────────────────────────────────────────
 echo ""
 info "Installing Playwright Chromium browser..."
 python3 -m playwright install chromium
 success "Playwright Chromium installed"
 
-# ── 6. Claude Code CLI (auto-apply) ───────────────────────────────────────────
+# ── 5. Claude Code CLI (auto-apply) ───────────────────────────────────────────
 echo ""
 if command -v node &>/dev/null; then
   if command -v claude &>/dev/null; then
@@ -144,7 +123,7 @@ else
   warn "Skipping Claude Code CLI install (Node.js not available)."
 fi
 
-# ── 7. Copy config files to ~/.applypilot ────────────────────────────────────
+# ── 6. Copy config files to ~/.applypilot ────────────────────────────────────
 echo ""
 ENV_DIR="${HOME}/.applypilot"
 mkdir -p "${ENV_DIR}"
@@ -186,14 +165,14 @@ else
   echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 fi
 
-# ── 8. Next steps ─────────────────────────────────────────────────────────────
+# ── 7. Next steps ─────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Next steps:${RESET}"
 echo ""
 if [ -d "${CONTENT_DIR}" ]; then
-  echo -e "  ${CYAN}1.${RESET} Verify setup:           ${BOLD}applypilot doctor${RESET}"
-  echo -e "  ${CYAN}2.${RESET} Start the pipeline:     ${BOLD}applypilot run${RESET}"
-  echo -e "  ${CYAN}3.${RESET} Auto-apply:             ${BOLD}applypilot apply${RESET}"
+  echo -e "  ${CYAN}1.${RESET} Verify setup:       ${BOLD}applypilot doctor${RESET}"
+  echo -e "  ${CYAN}2.${RESET} Start the pipeline: ${BOLD}applypilot run${RESET}"
+  echo -e "  ${CYAN}3.${RESET} Auto-apply:         ${BOLD}applypilot apply${RESET}"
 else
   echo -e "  ${CYAN}1.${RESET} Add your API keys:      ${BOLD}nano ${HOME}/.applypilot/.env${RESET}"
   echo -e "  ${CYAN}2.${RESET} Run the setup wizard:   ${BOLD}applypilot init${RESET}"
@@ -203,7 +182,7 @@ else
 fi
 echo ""
 
-# ── 9. Doctor ─────────────────────────────────────────────────────────────────
+# ── 8. Doctor ─────────────────────────────────────────────────────────────────
 echo -e "${BOLD}Running applypilot doctor...${RESET}"
 echo ""
 applypilot doctor || warn "Some checks failed. Fix the issues above, then re-run: applypilot doctor"
