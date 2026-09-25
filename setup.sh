@@ -5,6 +5,19 @@
 #
 #  Usage:
 #    chmod +x setup.sh && ./setup.sh
+#
+#  Tip: Place an 'applypilot_content/' folder next to this script
+#  with your pre-populated config files and they will be copied
+#  automatically to ~/.applypilot/ — no manual editing needed.
+#
+#  Expected files inside applypilot_content/:
+#    .env            (API keys)
+#    profile.json    (your personal profile)
+#    resume.txt      (plain-text resume)
+#    resume.pdf      (PDF resume)
+#    searches.yaml   (job search queries)
+#    employers.yaml  (Workday employer list)
+#    sites.yaml      (direct career sites)
 # =============================================================================
 
 set -euo pipefail
@@ -24,6 +37,10 @@ error()   { echo -e "${RED}[ERROR]${RESET} $*"; exit 1; }
 REPO_URL="https://github.com/sreeragrnandan/job-apply-agent.git"
 REPO_DIR="job-apply-agent"
 NODE_MIN=18
+
+# Resolve the directory where this script lives (works even if called from elsewhere)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONTENT_DIR="${SCRIPT_DIR}/applypilot_content"
 
 echo ""
 echo -e "${BOLD}${CYAN}================================================${RESET}"
@@ -127,40 +144,63 @@ else
   warn "Skipping Claude Code CLI install (Node.js not available)."
 fi
 
-# ── 7. .env setup ─────────────────────────────────────────────────────────────
+# ── 7. Copy config files to ~/.applypilot ────────────────────────────────────
 echo ""
 ENV_DIR="${HOME}/.applypilot"
-ENV_FILE="${ENV_DIR}/.env"
 mkdir -p "${ENV_DIR}"
 
-if [ -f "${ENV_FILE}" ]; then
-  warn ".env already exists at ${ENV_FILE} — skipping. Edit manually if needed."
+if [ -d "${CONTENT_DIR}" ]; then
+  info "Found applypilot_content/ — copying your pre-populated config files..."
+  cp -rv "${CONTENT_DIR}/." "${ENV_DIR}/"
+  success "All files from applypilot_content/ copied to ${ENV_DIR}/"
+  echo ""
+  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}Config restored from applypilot_content/${RESET}"
+  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  echo -e "  Destination:  ${CYAN}${ENV_DIR}/${RESET}"
+  echo -e "  Files copied: $(ls -1 "${CONTENT_DIR}" | tr '\n' '  ')"
+  echo ""
+  echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 else
-  cp .env.example "${ENV_FILE}"
-  success "Copied .env.example → ${ENV_FILE}"
+  # Fallback: no pre-populated folder found — copy .env.example
+  warn "applypilot_content/ not found next to this script."
+  warn "Falling back to .env.example — you will need to fill in your API keys manually."
+  ENV_FILE="${ENV_DIR}/.env"
+  if [ -f "${ENV_FILE}" ]; then
+    warn ".env already exists at ${ENV_FILE} — skipping. Edit manually if needed."
+  else
+    cp .env.example "${ENV_FILE}"
+    success "Copied .env.example → ${ENV_FILE}"
+  fi
+  echo ""
+  echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}ACTION REQUIRED: Add your API keys${RESET}"
+  echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  echo -e "  Edit:  ${CYAN}${ENV_FILE}${RESET}"
+  echo ""
+  echo "  GEMINI_API_KEY=<your key>     # Required  - free at aistudio.google.com"
+  echo "  CAPSOLVER_API_KEY=<your key>  # Optional  - CAPTCHA solving during auto-apply"
+  echo ""
+  echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 fi
-
-echo ""
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-echo -e "${BOLD}ACTION REQUIRED: Add your API keys${RESET}"
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-echo ""
-echo -e "  Edit:  ${CYAN}${ENV_FILE}${RESET}"
-echo ""
-echo "  GEMINI_API_KEY=<your key>     # Required  - free at aistudio.google.com"
-echo "  CAPSOLVER_API_KEY=<your key>  # Optional  - CAPTCHA solving during auto-apply"
-echo ""
-echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
 # ── 8. Next steps ─────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Next steps:${RESET}"
 echo ""
-echo -e "  ${CYAN}1.${RESET} Add your API keys:      ${BOLD}nano ${ENV_FILE}${RESET}"
-echo -e "  ${CYAN}2.${RESET} Run the setup wizard:   ${BOLD}applypilot init${RESET}"
-echo -e "  ${CYAN}3.${RESET} Verify setup:           ${BOLD}applypilot doctor${RESET}"
-echo -e "  ${CYAN}4.${RESET} Start the pipeline:     ${BOLD}applypilot run${RESET}"
-echo -e "  ${CYAN}5.${RESET} Auto-apply:             ${BOLD}applypilot apply${RESET}"
+if [ -d "${CONTENT_DIR}" ]; then
+  echo -e "  ${CYAN}1.${RESET} Verify setup:           ${BOLD}applypilot doctor${RESET}"
+  echo -e "  ${CYAN}2.${RESET} Start the pipeline:     ${BOLD}applypilot run${RESET}"
+  echo -e "  ${CYAN}3.${RESET} Auto-apply:             ${BOLD}applypilot apply${RESET}"
+else
+  echo -e "  ${CYAN}1.${RESET} Add your API keys:      ${BOLD}nano ${HOME}/.applypilot/.env${RESET}"
+  echo -e "  ${CYAN}2.${RESET} Run the setup wizard:   ${BOLD}applypilot init${RESET}"
+  echo -e "  ${CYAN}3.${RESET} Verify setup:           ${BOLD}applypilot doctor${RESET}"
+  echo -e "  ${CYAN}4.${RESET} Start the pipeline:     ${BOLD}applypilot run${RESET}"
+  echo -e "  ${CYAN}5.${RESET} Auto-apply:             ${BOLD}applypilot apply${RESET}"
+fi
 echo ""
 
 # ── 9. Doctor ─────────────────────────────────────────────────────────────────
