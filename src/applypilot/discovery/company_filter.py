@@ -436,11 +436,44 @@ def is_description_blocked(description: str | None, filter_cfg: dict | None = No
     return False, ""
 
 
+DEFAULT_BLOCKED_LOCATIONS = [
+    "mexico", "mexico city", "usa", "united states", "us", "uk", "united kingdom",
+    "canada", "australia", "germany", "poland", "philippines", "manila",
+    "spain", "france", "brazil", "colombia", "costa rica", "romania",
+    "singapore", "japan", "latam", "latin america", "sweden", "switzerland",
+    "netherlands", "ireland", "korea", "seoul", "eagan-minnesota", "new-york", "frisco-texas",
+    "zug-zug", "gothenburg", "langenfeld", "toronto-ontario"
+]
+
+def is_location_blocked(
+    location: str | None,
+    filter_cfg: dict | None = None,
+    url: str | None = None,
+    description: str | None = None,
+) -> tuple[bool, str]:
+    """Check if job location is outside target region (India)."""
+    text_to_check = f"{location or ''} {url or ''} {description[:500] if description else ''}".lower()
+    if not text_to_check.strip():
+        return False, ""
+    
+    # If explicitly mentions India or Indian tech hubs, allow
+    india_hubs = ["india", "bengaluru", "bangalore", "hyderabad", "pune", "delhi", "noida", "gurgaon", "mumbai", "chennai"]
+    if any(hub in text_to_check for hub in india_hubs):
+        return False, ""
+        
+    for blocked_loc in DEFAULT_BLOCKED_LOCATIONS:
+        if blocked_loc in text_to_check:
+            return True, f"Foreign job location: matched '{blocked_loc}'"
+            
+    return False, ""
+
 def is_job_allowed(
     title: str | None,
     company: str | None,
     description: str | None = None,
     filter_cfg: dict | None = None,
+    location: str | None = None,
+    url: str | None = None,
 ) -> tuple[bool, str]:
     """Master filter check for a job.
 
@@ -459,7 +492,12 @@ def is_job_allowed(
     if c_blocked:
         return False, c_reason
 
-    # 3. Description red flag check
+    # 3. Location check
+    l_blocked, l_reason = is_location_blocked(location, cfg, url=url, description=description)
+    if l_blocked:
+        return False, l_reason
+
+    # 4. Description red flag check
     if description:
         d_blocked, d_reason = is_description_blocked(description, cfg)
         if d_blocked:

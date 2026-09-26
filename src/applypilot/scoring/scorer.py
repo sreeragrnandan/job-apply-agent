@@ -28,11 +28,12 @@ SCORING CRITERIA:
 - 7-8: Strong match. Candidate has most required technical skills and domain strengths, minor gaps easily bridged.
 - 5-6: Moderate match. Candidate has some relevant skills, but missing key core technologies or experience.
 - 3-4: Weak match. Significant skill gaps, or role appears to be a staffing agency, IT consultancy, or client services vendor.
-- 1-2: Poor match. Completely different field, pure IT services/body shop, OR QA/Testing/SDET/Automation Testing role.
+- 1-2: Poor match. Completely different field, pure IT services/body shop, QA/Testing/SDET role, OR foreign location (e.g. Mexico, USA, Europe) without India remote option.
 
 IMPORTANT FACTORS:
 - TARGET ROLES: Candidate ONLY targets Software Development (Backend, Full Stack, Systems, Cloud, AI/ML) and NOT Quality Assurance / Testing / SDET.
 - STRICT REJECTION FOR QA & TESTING: If the role is QA, Software Testing, SDET, Manual Tester, or Automation Test Engineer, assign a score of 1-2. Candidate is a Software Developer, NOT a Tester.
+- LOCATION FIT: Candidate is located in India. If the job location requires living/working outside India (e.g. Mexico, USA, UK, Europe, LatAm) and is NOT Remote from India, assign a score of 1-2.
 - TARGET COMPANIES: Candidate targets top product-based tech companies (Tier 1/Tier 2 like Google, Uber, Stripe, Atlassian) and top product startups (Series B+, unicorns in SaaS, Cloud, DevTools, Fintech, AI/ML).
 - HEAVY PENALTY FOR SERVICES / CONSULTING / STAFFING: If the company or job description indicates an IT service firm, consultancy, staffing vendor, C2C, or third-party client project, heavily penalize the score (max 1-3).
 - PRODUCT FOCUS BONUS: Reward jobs building proprietary core products, scalable cloud platforms, modern distributed systems, and real tech engineering.

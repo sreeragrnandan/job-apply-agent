@@ -135,8 +135,8 @@ def store_jobspy_results(conn: sqlite3.Connection, df, source_label: str, filter
         location_str = str(row.get("location", "")) if str(row.get("location", "")) != "nan" else None
         description = str(row.get("description", "")) if str(row.get("description", "")) != "nan" else None
 
-        # Filter out IT services, staffing agencies, BPOs, unwanted titles
-        allowed, reason = is_job_allowed(title, company, description, filter_cfg)
+        # Filter out IT services, staffing agencies, BPOs, unwanted titles, and foreign non-India locations
+        allowed, reason = is_job_allowed(title, company, description, filter_cfg, location=location_str)
         if not allowed:
             log.debug("Skipping '%s' at '%s': %s", title, company, reason)
             continue

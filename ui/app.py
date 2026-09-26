@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,31 +29,29 @@ except ImportError:
     DB_PATH = Path.home() / ".applypilot" / "applypilot.db"
     LOG_DIR = Path.home() / ".applypilot" / "logs"
 
-# Find the applypilot executable (workspace .venv, current python venv, or PATH)
-def _find_applypilot_exe():
+# Find the applypilot executable or module command
+def _find_applypilot_cmd():
     exe_name = 'applypilot.exe' if sys.platform == 'win32' else 'applypilot'
-    # 1. Check current python environment
-    c1 = Path(sys.executable).parent / exe_name
-    if c1.exists():
-        return c1
-    c1_noext = Path(sys.executable).parent / 'applypilot'
-    if c1_noext.exists():
-        return c1_noext
-    # 2. Check root workspace .venv
+    # 1. Workspace .venv
     v_dir = ROOT_DIR / ".venv" / ("Scripts" if sys.platform == 'win32' else "bin")
-    c2 = v_dir / exe_name
+    c1 = v_dir / exe_name
+    if c1.exists():
+        return [str(c1)]
+    # 2. Current python venv
+    c2 = Path(sys.executable).parent / exe_name
     if c2.exists():
-        return c2
-    c2_noext = v_dir / 'applypilot'
-    if c2_noext.exists():
-        return c2_noext
-    # 3. Fallback to shutil.which
+        return [str(c2)]
+    # 3. PATH
     found = shutil.which('applypilot')
     if found:
-        return Path(found)
-    return c1
+        return [found]
+    # 4. Fallback to python module execution
+    py_bin = str(v_dir / ("python.exe" if sys.platform == 'win32' else "python"))
+    if not Path(py_bin).exists():
+        py_bin = sys.executable
+    return [py_bin, "-m", "applypilot"]
 
-AP_EXE = _find_applypilot_exe()
+AP_CMD = _find_applypilot_cmd()
 
 ANSI = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 def strip_ansi(s): return ANSI.sub('', s)
@@ -68,8 +67,14 @@ PROC_LOCK      = threading.Lock()
 def _reader_thread(proc):
     global CURRENT_PROC
     try:
-        for raw in proc.stdout:
-            line = strip_ansi(raw.rstrip())
+        while True:
+            line_str = proc.stdout.readline()
+            if not line_str:
+                if proc.poll() is not None:
+                    break
+                time.sleep(0.05)
+                continue
+            line = strip_ansi(line_str.rstrip())
             with PROC_LOCK:
                 OUTPUT_HISTORY.append(line)
                 for q in list(SUBSCRIBERS):
@@ -88,16 +93,24 @@ def _reader_thread(proc):
                     pass
     finally:
         try:
-            proc.wait(timeout=5)
+            proc.wait(timeout=2)
         except Exception:
             pass
         with PROC_LOCK:
-            CURRENT_PROC = None
+            if CURRENT_PROC == proc:
+                CURRENT_PROC = None
             for q in list(SUBSCRIBERS):
                 try:
                     q.put_nowait('__DONE__')
                 except Exception:
                     pass
+
+@app.after_request
+def add_no_cache(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/')
 def index():
@@ -110,19 +123,24 @@ def run_cmd():
     command  = data.get('command', 'doctor')
     args     = data.get('args', [])
     stage_id = data.get('stage_id')
-    cmd      = [str(AP_EXE), command] + [str(a) for a in args]
+    cmd      = AP_CMD + [command] + [str(a) for a in args]
 
     q = queue.Queue()
     with PROC_LOCK:
         if CURRENT_PROC and CURRENT_PROC.poll() is None:
             SUBSCRIBERS.add(q)
         else:
+            CURRENT_PROC = None
             OUTPUT_HISTORY = []
             PROC_INFO = {
                 'command':  command,
                 'args':     args,
                 'stage_id': stage_id,
             }
+            sub_env = os.environ.copy()
+            sub_env['PYTHONUNBUFFERED'] = '1'
+            sub_env['PYTHONUTF8'] = '1'
+            sub_env['PYTHONIOENCODING'] = 'utf-8'
             try:
                 proc = subprocess.Popen(
                     cmd,
@@ -133,6 +151,7 @@ def run_cmd():
                     bufsize=1,
                     encoding='utf-8',
                     errors='replace',
+                    env=sub_env,
                 )
                 CURRENT_PROC = proc
                 SUBSCRIBERS.add(q)
@@ -242,7 +261,7 @@ def env_check():
         'env_exists':       (ap_dir / '.env').exists(),
         'profile_exists':   (ap_dir / 'profile.json').exists(),
         'searches_exists':  (ap_dir / 'searches.yaml').exists(),
-        'ap_exe_ok':        AP_EXE.exists(),
+        'ap_exe_ok':        len(AP_CMD) > 0,
     })
 
 # ── Dashboard & Jobs Data APIs ──────────────────────────────────────────────────

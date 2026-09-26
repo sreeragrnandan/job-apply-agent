@@ -768,22 +768,21 @@
 
   <!-- TAB 1: Pipeline & Terminal -->
   <div id="pane-pipeline" class="tab-pane active">
-    <!-- Pipeline stages -->
+    <!-- Quick actions & pipeline control -->
     <div class="sec">
-      <div class="sec-title">Pipeline Stages</div>
-      <div class="stages" id="stages"></div>
-    </div>
-
-    <!-- Quick actions -->
-    <div class="sec">
-      <div class="sec-title">Quick Actions</div>
+      <div class="sec-title">Quick Actions & Pipeline Control</div>
       <div class="actions">
-        <button class="btn btn-primary" id="b-run"    onclick="runAll()">▶ Run All Stages</button>
-        <button class="btn btn-sec"     id="b-batch"  onclick="runBatch()">📦 Run Batch Mode</button>
-        <button class="btn btn-sec"     id="b-apply"  onclick="doApply()">🤖 Auto-Apply</button>
-        <button class="btn btn-sec"     id="b-doc"    onclick="doDoctor()">🩺 Doctor Check</button>
-        <button class="btn btn-sec"     id="b-status" onclick="doStatus()">📊 Status</button>
-        <button class="btn btn-danger"  id="b-stop"   onclick="doStop()" disabled>⏹ Stop</button>
+        <button class="btn btn-primary" id="b-run"          onclick="runAll()">▶ Run All Stages</button>
+        <button class="btn btn-sec"     id="b-batch"        onclick="runBatch()">📦 Run Batch Mode</button>
+        <button class="btn btn-sec"     id="b-qa-discover"  onclick="runDiscover()">🔍 Discover</button>
+        <button class="btn btn-sec"     id="b-qa-enrich"    onclick="runEnrich()">📋 Enrich</button>
+        <button class="btn btn-sec"     id="b-qa-score"     onclick="runScore()">⭐ Score</button>
+        <button class="btn btn-sec"     id="b-qa-tailor"    onclick="runTailor()">✂️ Tailor</button>
+        <button class="btn btn-sec"     id="b-qa-cover"     onclick="runCover()">📝 Cover Letter</button>
+        <button class="btn btn-sec"     id="b-apply"        onclick="doApply()">🚀 Auto-Apply</button>
+        <button class="btn btn-sec"     id="b-doc"          onclick="doDoctor()">🩺 Doctor Check</button>
+        <button class="btn btn-sec"     id="b-status"       onclick="doStatus()">📊 Status</button>
+        <button class="btn btn-danger"  id="b-stop"         onclick="doStop()" disabled>⏹ Stop</button>
       </div>
       <div class="opts">
         <span class="opt-lbl">Batch size</span>
@@ -1045,21 +1044,6 @@ const STAGES = [
 
 let running = false;
 
-// Build stage cards
-const grid = document.getElementById('stages');
-STAGES.forEach(s => {
-  grid.innerHTML += `
-  <div class="stage-card" id="card-${s.id}">
-    <div class="s-top">
-      <div class="s-icon">${s.icon}</div>
-      <div class="s-dot" id="dot-${s.id}"></div>
-    </div>
-    <div class="s-name">${s.name}</div>
-    <div class="s-desc">${s.desc}</div>
-    <button class="s-run" id="sbtn-${s.id}" onclick="runStage('${s.id}')">▷ Run this stage</button>
-  </div>`;
-});
-
 // Terminal helpers
 const term = document.getElementById('term');
 function addLine(txt, cls='td') {
@@ -1215,33 +1199,44 @@ async function checkRunning() {
 // Collect run options
 function runOpts() {
   const a = [];
-  const w = parseInt(document.getElementById('workers').value);
+  const wEl = document.getElementById('workers');
+  const w = wEl ? (parseInt(wEl.value) || 1) : 1;
   if (w > 1) a.push('--workers', w);
-  if (document.getElementById('dry-run').checked)  a.push('--dry-run');
-  const ms = parseInt(document.getElementById('min-score').value);
+  const drEl = document.getElementById('dry-run');
+  if (drEl && drEl.checked) a.push('--dry-run');
+  const msEl = document.getElementById('min-score');
+  const ms = msEl ? (parseInt(msEl.value) || 7) : 7;
   if (ms !== 7) a.push('--min-score', ms);
-  const bs = parseInt(document.getElementById('batch-size').value);
+  const bsEl = document.getElementById('batch-size');
+  const bs = bsEl ? (parseInt(bsEl.value) || 0) : 0;
   if (bs > 0) a.push('--batch-size', bs);
   a.push('--auto-apply');
   const sm = document.getElementById('stream-mode');
   if (!sm || sm.checked) a.push('--stream');
   return a;
 }
+
 function applyOpts() {
   const a = [];
-  const w = parseInt(document.getElementById('workers').value);
+  const wEl = document.getElementById('workers');
+  const w = wEl ? (parseInt(wEl.value) || 1) : 1;
   if (w > 1) a.push('--workers', w);
-  if (document.getElementById('dry-run').checked)  a.push('--dry-run');
-  if (document.getElementById('headless').checked) a.push('--headless');
+  const drEl = document.getElementById('dry-run');
+  if (drEl && drEl.checked) a.push('--dry-run');
+  const hlEl = document.getElementById('headless');
+  if (hlEl && hlEl.checked) a.push('--headless');
   return a;
 }
 
 function runAll()   { exec('run',   runOpts(),   null); }
 function runBatch() {
-  const size = parseInt(document.getElementById('batch-size').value) || 5;
-  const ms = parseInt(document.getElementById('min-score').value) || 7;
+  const bsEl = document.getElementById('batch-size');
+  const size = bsEl ? (parseInt(bsEl.value) || 5) : 5;
+  const msEl = document.getElementById('min-score');
+  const ms = msEl ? (parseInt(msEl.value) || 7) : 7;
   const args = ['--size', String(size), '--min-score', String(ms), '--auto-apply'];
-  if (document.getElementById('dry-run').checked) args.push('--dry-run');
+  const drEl = document.getElementById('dry-run');
+  if (drEl && drEl.checked) args.push('--dry-run');
   exec('batch', args, null);
 }
 function doApply()  { exec('apply', applyOpts(), 'apply'); }
@@ -1251,19 +1246,46 @@ function doStatus() { exec('status', [],          null); }
 function stageOpts(id) {
   if (id === 'apply') return applyOpts();
   const a = [];
-  const w = parseInt(document.getElementById('workers').value);
+  const wEl = document.getElementById('workers');
+  const w = wEl ? (parseInt(wEl.value) || 1) : 1;
   if (w > 1) a.push('--workers', w);
-  if (document.getElementById('dry-run').checked) a.push('--dry-run');
-  const ms = parseInt(document.getElementById('min-score').value);
+  const drEl = document.getElementById('dry-run');
+  if (drEl && drEl.checked) a.push('--dry-run');
+  const msEl = document.getElementById('min-score');
+  const ms = msEl ? (parseInt(msEl.value) || 7) : 7;
   if (ms !== 7) a.push('--min-score', ms);
   return a;
 }
 
+function runDiscover() { exec('run', ['discover', ...stageOpts('discover')], 'discover'); }
+function runEnrich()   { exec('run', ['enrich',   ...stageOpts('enrich')],   'enrich'); }
+function runScore()    { exec('run', ['score',    ...stageOpts('score')],    'score'); }
+function runTailor()   { exec('run', ['tailor',   ...stageOpts('tailor')],   'tailor'); }
+function runCover()    { exec('run', ['cover',    ...stageOpts('cover')],    'cover'); }
+
 function runStage(id) {
+  if (id === 'discover') return runDiscover();
+  if (id === 'enrich')   return runEnrich();
+  if (id === 'score')    return runScore();
+  if (id === 'tailor')   return runTailor();
+  if (id === 'cover')    return runCover();
+  if (id === 'apply')    return doApply();
   const s = STAGES.find(x => x.id === id);
-  if (!s) return;
-  exec(s.cmd, [...s.args, ...stageOpts(id)], id);
+  if (s) exec(s.cmd, [...s.args, ...stageOpts(id)], id);
 }
+
+window.runDiscover = runDiscover;
+window.runEnrich = runEnrich;
+window.runScore = runScore;
+window.runTailor = runTailor;
+window.runCover = runCover;
+window.runStage = runStage;
+window.runAll = runAll;
+window.runBatch = runBatch;
+window.doApply = doApply;
+window.doDoctor = doDoctor;
+window.doStatus = doStatus;
+window.doStop = doStop;
 
 async function doStop() {
   try {

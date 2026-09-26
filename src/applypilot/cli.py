@@ -481,6 +481,7 @@ def doctor() -> None:
     console.print()
 
 
+@app.command("audit")
 @app.command("filter-cleanup")
 def filter_cleanup(
     delete: bool = typer.Option(False, "--delete", "-d", help="Delete blocked jobs instead of only previewing/penalizing them."),
@@ -493,7 +494,7 @@ def filter_cleanup(
     from applypilot.discovery.company_filter import is_job_allowed
 
     conn = get_connection()
-    rows = conn.execute("SELECT url, title, company, site, description, full_description, fit_score FROM jobs").fetchall()
+    rows = conn.execute("SELECT url, title, company, site, location, description, full_description, fit_score FROM jobs").fetchall()
 
     if not rows:
         console.print("[dim]No jobs found in database.[/dim]")
@@ -504,7 +505,8 @@ def filter_cleanup(
         title = r["title"]
         company = r["company"] or (r["site"] if r["site"] and r["site"].lower() not in ("indeed", "linkedin", "glassdoor", "google") else "")
         desc = r["full_description"] or r["description"]
-        allowed, reason = is_job_allowed(title, company, desc)
+        location = r["location"]
+        allowed, reason = is_job_allowed(title, company, description=desc, location=location, url=r["url"])
         if not allowed:
             blocked_jobs.append((dict(r), reason))
 
