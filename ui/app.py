@@ -4,6 +4,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -27,11 +28,31 @@ except ImportError:
     DB_PATH = Path.home() / ".applypilot" / "applypilot.db"
     LOG_DIR = Path.home() / ".applypilot" / "logs"
 
-# Find the applypilot executable inside the venv
-SCRIPTS  = Path(sys.executable).parent          # .venv/Scripts (win) or .venv/bin (unix)
-AP_EXE   = SCRIPTS / ('applypilot.exe' if sys.platform == 'win32' else 'applypilot')
-if not AP_EXE.exists():
-    AP_EXE = SCRIPTS / 'applypilot'            # fallback without .exe
+# Find the applypilot executable (workspace .venv, current python venv, or PATH)
+def _find_applypilot_exe():
+    exe_name = 'applypilot.exe' if sys.platform == 'win32' else 'applypilot'
+    # 1. Check current python environment
+    c1 = Path(sys.executable).parent / exe_name
+    if c1.exists():
+        return c1
+    c1_noext = Path(sys.executable).parent / 'applypilot'
+    if c1_noext.exists():
+        return c1_noext
+    # 2. Check root workspace .venv
+    v_dir = ROOT_DIR / ".venv" / ("Scripts" if sys.platform == 'win32' else "bin")
+    c2 = v_dir / exe_name
+    if c2.exists():
+        return c2
+    c2_noext = v_dir / 'applypilot'
+    if c2_noext.exists():
+        return c2_noext
+    # 3. Fallback to shutil.which
+    found = shutil.which('applypilot')
+    if found:
+        return Path(found)
+    return c1
+
+AP_EXE = _find_applypilot_exe()
 
 ANSI = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 def strip_ansi(s): return ANSI.sub('', s)

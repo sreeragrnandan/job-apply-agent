@@ -252,12 +252,12 @@ class LLMClient:
                     continue
                 raise
 
-            except httpx.TimeoutException:
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
                 if attempt < _MAX_RETRIES - 1:
                     wait = min(_RATE_LIMIT_BASE_WAIT * (2 ** attempt), 60)
                     log.warning(
-                        "LLM request timed out, retrying in %ds (attempt %d/%d)",
-                        wait, attempt + 1, _MAX_RETRIES,
+                        "LLM connection error (%s), retrying in %ds (attempt %d/%d)",
+                        exc, wait, attempt + 1, _MAX_RETRIES,
                     )
                     time.sleep(wait)
                     continue

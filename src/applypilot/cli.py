@@ -87,6 +87,8 @@ def run(
     workers: int = typer.Option(1, "--workers", "-w", help="Parallel threads for discovery/enrichment stages."),
     stream: bool = typer.Option(False, "--stream", help="Run stages concurrently (streaming mode)."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview stages without executing."),
+    batch_size: int = typer.Option(0, "--batch-size", "-b", help="Batch size of qualified jobs to score/tailor/apply at a time (e.g. 5, 10)."),
+    auto_apply: bool = typer.Option(False, "--auto-apply", "-a", help="Automatically trigger auto-apply after each batch is tailored."),
     validation: str = typer.Option(
         "normal",
         "--validation",
@@ -136,6 +138,8 @@ def run(
         stream=stream,
         workers=workers,
         validation_mode=validation,
+        batch_size=batch_size,
+        auto_apply=auto_apply,
     )
 
     if result.get("errors"):
@@ -143,11 +147,35 @@ def run(
 
 
 @app.command()
+def batch(
+    size: int = typer.Option(5, "--size", "-n", help="Batch size of qualified jobs (e.g., 2, 5, 10, 15)."),
+    min_score: int = typer.Option(7, "--min-score", help="Minimum fit score (1-10) for job qualification."),
+    auto_apply: bool = typer.Option(True, "--auto-apply/--no-auto-apply", "-a", help="Automatically trigger auto-apply after each batch is tailored."),
+    validation: str = typer.Option("normal", "--validation", help="Validation mode: strict, normal, lenient."),
+    workers: int = typer.Option(1, "--workers", "-w", help="Parallel worker threads."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview batch execution without running."),
+) -> None:
+    """Run job processing in batches of N qualified jobs (scoring -> tailoring -> auto-applying)."""
+    _bootstrap()
+
+    from applypilot.pipeline import run_batch_pipeline
+
+    run_batch_pipeline(
+        batch_size=size,
+        min_score=min_score,
+        auto_apply=auto_apply,
+        workers=workers,
+        validation_mode=validation,
+        dry_run=dry_run,
+    )
+
+
+@app.command()
 def apply(
     limit: Optional[int] = typer.Option(None, "--limit", "-l", help="Max applications to submit."),
     workers: int = typer.Option(1, "--workers", "-w", help="Number of parallel browser workers."),
     min_score: int = typer.Option(7, "--min-score", help="Minimum fit score for job selection."),
-    model: str = typer.Option("claude-haiku-4-5", "--model", "-m", help="Claude model name."),
+    model: str = typer.Option("haiku", "--model", "-m", help="Claude model name."),
     continuous: bool = typer.Option(False, "--continuous", "-c", help="Run forever, polling for new jobs."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview actions without submitting."),
     headless: bool = typer.Option(False, "--headless", help="Run browsers in headless mode."),

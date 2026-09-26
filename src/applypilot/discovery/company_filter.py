@@ -225,6 +225,20 @@ DEFAULT_EXCLUDE_TITLES = [
     "customer support executive",
     "accountant",
     "marketing manager",
+    "sdet",
+    "qa",
+    "quality assurance",
+    "tester",
+    "testing",
+    "test engineer",
+    "automation test engineer",
+    "qa engineer",
+    "qa analyst",
+    "qa lead",
+    "test lead",
+    "manual tester",
+    "software test engineer",
+    "software engineer in test",
 ]
 
 # Tier 1 & Tier 2 Product Companies (Known high-bar engineering teams)

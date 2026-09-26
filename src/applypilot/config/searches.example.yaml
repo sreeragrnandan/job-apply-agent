@@ -126,6 +126,20 @@ exclude_titles:
   - "bpo executive"
   - "customer support"
   - "accountant"
+  - "sdet"
+  - "qa"
+  - "quality assurance"
+  - "tester"
+  - "testing"
+  - "test engineer"
+  - "automation test engineer"
+  - "qa engineer"
+  - "qa analyst"
+  - "qa lead"
+  - "test lead"
+  - "manual tester"
+  - "software test engineer"
+  - "software engineer in test"
 
 # Target company filtering -- prioritize top product companies & startups; reject IT services/consulting/staffing
 company_filter:

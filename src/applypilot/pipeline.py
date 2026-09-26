@@ -16,6 +16,7 @@ import logging
 import threading
 import time
 from datetime import datetime
+from typing import Callable
 
 from rich.console import Console
 from rich.panel import Panel
@@ -155,7 +156,7 @@ def _run_pdf() -> dict:
 
 
 # Map stage names to their runner functions
-_STAGE_RUNNERS: dict[str, callable] = {
+_STAGE_RUNNERS: dict[str, Callable] = {
     "discover": _run_discover,
     "enrich":   _run_enrich,
     "score":    _run_score,
@@ -441,6 +442,125 @@ def _run_streaming(ordered: list[str], min_score: int, workers: int = 1,
     return {"stages": results, "errors": errors, "elapsed": total_elapsed}
 
 
+def run_batch_pipeline(
+    batch_size: int = 5,
+    min_score: int = 7,
+    auto_apply: bool = False,
+    workers: int = 1,
+    validation_mode: str = "normal",
+    model: str = "haiku",
+    headless: bool = True,
+    dry_run: bool = False,
+) -> dict:
+    """Run pipeline in batches of N qualified jobs.
+
+    Scores jobs until N jobs reach score >= min_score, then tailors resumes,
+    generates cover letters, and (optionally) auto-applies before processing the next batch.
+    """
+    load_env()
+    ensure_dirs()
+    init_db()
+
+    if batch_size <= 0:
+        try:
+            from applypilot.config import load_search_config
+            cfg = load_search_config()
+            batch_size = cfg.get("defaults", {}).get("batch_size", 5)
+        except Exception:
+            batch_size = 5
+
+    console.print()
+    console.print(Panel.fit(
+        f"[bold]ApplyPilot Batch Pipeline[/bold] (Batch size: {batch_size})",
+        border_style="magenta",
+    ))
+    console.print(f"  Batch size: {batch_size} qualified jobs (score >= {min_score})")
+    console.print(f"  Auto-apply: {'ENABLED' if auto_apply else 'Disabled'}")
+    console.print(f"  Validation: {validation_mode}")
+
+    if dry_run:
+        console.print("\n  [yellow]DRY RUN[/yellow] — batch processing previewed.")
+        return {"batches": 0, "status": "dry_run"}
+
+    from applypilot.scoring.scorer import run_scoring
+    from applypilot.scoring.tailor import run_tailoring
+    from applypilot.scoring.cover_letter import run_cover_letters
+    from applypilot.scoring.pdf import batch_convert
+
+    # If database is empty or has no pending jobs, run discovery and enrichment first
+    conn = get_connection()
+    unscored_count = conn.execute("SELECT COUNT(*) FROM jobs WHERE fit_score IS NULL").fetchone()[0]
+
+    if unscored_count == 0:
+        console.print("[cyan]No unscored jobs in database. Running discovery & enrichment first...[/cyan]")
+        _run_discover(workers=workers)
+        _run_enrich(workers=workers)
+
+    batch_index = 0
+    total_processed = 0
+
+    while True:
+        batch_index += 1
+        console.print(f"\n[bold cyan]=== Starting Batch #{batch_index} (Target: {batch_size} qualified jobs >= {min_score}) ===[/bold cyan]")
+
+        # Check if unscored jobs are available; if 0, run discovery & enrichment once
+        unscored_rem = conn.execute("SELECT COUNT(*) FROM jobs WHERE fit_score IS NULL").fetchone()[0]
+        if unscored_rem == 0:
+            console.print("  [cyan]Fetching new jobs via Discovery & Enrichment...[/cyan]")
+            _run_discover(workers=workers)
+            _run_enrich(workers=workers)
+
+        # 1. Score until batch_size qualified jobs are found
+        score_res = run_scoring(target_qualified=batch_size, min_score=min_score)
+
+        if score_res.get("scored", 0) == 0 and score_res.get("qualified", 0) == 0:
+            console.print("  [yellow]No unscored jobs remaining in database after discovery.[/yellow]")
+
+        # 2. Tailor resumes for this batch
+        tailor_res = run_tailoring(min_score=min_score, limit=batch_size, validation_mode=validation_mode)
+
+        # 3. Generate cover letters
+        cover_res = run_cover_letters(min_score=min_score, limit=batch_size, validation_mode=validation_mode)
+
+        # 4. Convert PDFs
+        batch_convert()
+
+        # Check ready jobs in DB
+        conn = get_connection()
+        ready_count = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE fit_score >= ? AND tailored_resume_path IS NOT NULL AND applied_at IS NULL",
+            (min_score,),
+        ).fetchone()[0]
+
+        console.print(f"  [green]Batch #{batch_index} complete:[/green] {ready_count} jobs ready to apply.")
+
+        if ready_count == 0:
+            console.print("[yellow]No qualified jobs ready in this batch. Batch execution finished.[/yellow]")
+            break
+
+        # 5. Auto-apply if requested
+        if auto_apply:
+            console.print(f"\n[bold green]Launching Auto-Apply for Batch #{batch_index} ({ready_count} jobs)...[/bold green]")
+            from applypilot.apply.launcher import main as apply_main
+            apply_main(
+                limit=batch_size,
+                min_score=min_score,
+                headless=headless,
+                model=model,
+                dry_run=dry_run,
+                workers=workers,
+            )
+
+        total_processed += ready_count
+
+        if score_res.get("scored", 0) == 0:
+            # All pending unscored jobs evaluated
+            break
+
+    console.print(f"\n[bold green]Batch Pipeline Finished![/bold green] Total batches: {batch_index}, Ready/Applied jobs: {total_processed}\n")
+    return {"batches": batch_index, "processed": total_processed}
+
+
 def run_pipeline(
     stages: list[str] | None = None,
     min_score: int = 7,
@@ -448,6 +568,8 @@ def run_pipeline(
     stream: bool = False,
     workers: int = 1,
     validation_mode: str = "normal",
+    batch_size: int = 0,
+    auto_apply: bool = False,
 ) -> dict:
     """Run pipeline stages.
 
@@ -457,10 +579,22 @@ def run_pipeline(
         dry_run: If True, preview stages without executing.
         stream: If True, run stages concurrently (streaming mode).
         workers: Number of parallel threads for discovery/enrichment stages.
+        batch_size: If > 0, execute pipeline in batches of N qualified jobs.
+        auto_apply: Automatically trigger auto-apply after each batch.
 
     Returns:
         Dict with keys: stages (list of result dicts), errors (dict), elapsed (float).
     """
+    if batch_size > 0:
+        return run_batch_pipeline(
+            batch_size=batch_size,
+            min_score=min_score,
+            auto_apply=auto_apply,
+            workers=workers,
+            validation_mode=validation_mode,
+            dry_run=dry_run,
+        )
+
     # Bootstrap
     load_env()
     ensure_dirs()

@@ -779,14 +779,20 @@
       <div class="sec-title">Quick Actions</div>
       <div class="actions">
         <button class="btn btn-primary" id="b-run"    onclick="runAll()">▶ Run All Stages</button>
+        <button class="btn btn-sec"     id="b-batch"  onclick="runBatch()">📦 Run Batch Mode</button>
         <button class="btn btn-sec"     id="b-apply"  onclick="doApply()">🤖 Auto-Apply</button>
         <button class="btn btn-sec"     id="b-doc"    onclick="doDoctor()">🩺 Doctor Check</button>
         <button class="btn btn-sec"     id="b-status" onclick="doStatus()">📊 Status</button>
         <button class="btn btn-danger"  id="b-stop"   onclick="doStop()" disabled>⏹ Stop</button>
       </div>
       <div class="opts">
+        <span class="opt-lbl">Batch size</span>
+        <input class="opt-num" type="number" id="batch-size" value="5" min="1" max="50" title="Number of qualified jobs per batch" />
+        <div class="opt-sep"></div>
         <span class="opt-lbl">Workers</span>
         <input class="opt-num" type="number" id="workers"   value="1" min="1" max="8" />
+        <div class="opt-sep"></div>
+        <label class="opt-chk"><input type="checkbox" id="stream-mode" checked /> Stream mode</label>
         <div class="opt-sep"></div>
         <label class="opt-chk"><input type="checkbox" id="dry-run"  /> Dry run</label>
         <div class="opt-sep"></div>
@@ -1029,12 +1035,12 @@
 </div>
 <script>
 const STAGES = [
-  {id:'discover',    icon:'🔍', name:'Discover',     desc:'Scrape job boards & career sites',      cmd:'run',    args:['discover']},
-  {id:'enrich',      icon:'📋', name:'Enrich',       desc:'Fetch full job descriptions',            cmd:'run',    args:['enrich']},
-  {id:'score',       icon:'⭐', name:'Score',        desc:'AI rates every job 1-10 vs your resume',cmd:'run',    args:['score']},
-  {id:'tailor',      icon:'✂️', name:'Tailor',       desc:'AI rewrites your resume per job',        cmd:'run',    args:['tailor']},
-  {id:'coverletter', icon:'📝', name:'Cover Letter', desc:'Generates targeted cover letters',       cmd:'run',    args:['coverletter']},
-  {id:'apply',       icon:'🚀', name:'Auto-Apply',   desc:'Browser-driven form submission',         cmd:'apply',  args:[]},
+  {id:'discover', icon:'🔍', name:'Discover',     desc:'Scrape job boards & career sites',      cmd:'run',    args:['discover']},
+  {id:'enrich',   icon:'📋', name:'Enrich',       desc:'Fetch full job descriptions',            cmd:'run',    args:['enrich']},
+  {id:'score',    icon:'⭐', name:'Score',        desc:'AI rates every job 1-10 vs your resume',cmd:'run',    args:['score']},
+  {id:'tailor',   icon:'✂️', name:'Tailor',       desc:'AI rewrites your resume per job',        cmd:'run',    args:['tailor']},
+  {id:'cover',    icon:'📝', name:'Cover Letter', desc:'Generates targeted cover letters',       cmd:'run',    args:['cover']},
+  {id:'apply',    icon:'🚀', name:'Auto-Apply',   desc:'Browser-driven form submission',         cmd:'apply',  args:[]},
 ];
 
 let running = false;
@@ -1152,6 +1158,10 @@ async function exec(command, args=[], stageId=null) {
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({command, args, stage_id: stageId})
     });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`HTTP ${res.status}: ${txt}`);
+    }
     await readSseStream(res.body.getReader(), stageId);
   } catch(e) {
     addLine('[ERROR] ' + e.message, 'te');
@@ -1192,7 +1202,10 @@ async function checkRunning() {
     const r = await fetch('/proc-status');
     const d = await r.json();
     if (d.running) {
-      attachRunning(d);
+      if (!running) attachRunning(d);
+    } else if (running) {
+      setRunning(false);
+      setStatus('ready', 'Ready');
     }
   } catch (e) {
     console.error('Check running failed:', e);
@@ -1207,6 +1220,11 @@ function runOpts() {
   if (document.getElementById('dry-run').checked)  a.push('--dry-run');
   const ms = parseInt(document.getElementById('min-score').value);
   if (ms !== 7) a.push('--min-score', ms);
+  const bs = parseInt(document.getElementById('batch-size').value);
+  if (bs > 0) a.push('--batch-size', bs);
+  a.push('--auto-apply');
+  const sm = document.getElementById('stream-mode');
+  if (!sm || sm.checked) a.push('--stream');
   return a;
 }
 function applyOpts() {
@@ -1219,15 +1237,32 @@ function applyOpts() {
 }
 
 function runAll()   { exec('run',   runOpts(),   null); }
+function runBatch() {
+  const size = parseInt(document.getElementById('batch-size').value) || 5;
+  const ms = parseInt(document.getElementById('min-score').value) || 7;
+  const args = ['--size', String(size), '--min-score', String(ms), '--auto-apply'];
+  if (document.getElementById('dry-run').checked) args.push('--dry-run');
+  exec('batch', args, null);
+}
 function doApply()  { exec('apply', applyOpts(), 'apply'); }
 function doDoctor() { exec('doctor', [],          null); }
 function doStatus() { exec('status', [],          null); }
 
+function stageOpts(id) {
+  if (id === 'apply') return applyOpts();
+  const a = [];
+  const w = parseInt(document.getElementById('workers').value);
+  if (w > 1) a.push('--workers', w);
+  if (document.getElementById('dry-run').checked) a.push('--dry-run');
+  const ms = parseInt(document.getElementById('min-score').value);
+  if (ms !== 7) a.push('--min-score', ms);
+  return a;
+}
+
 function runStage(id) {
   const s = STAGES.find(x => x.id === id);
   if (!s) return;
-  const extra = (id === 'apply') ? applyOpts() : runOpts().filter(a => a !== 'discover' && a !== 'enrich' && a !== 'score' && a !== 'tailor' && a !== 'coverletter');
-  exec(s.cmd, [...s.args, ...extra], id);
+  exec(s.cmd, [...s.args, ...stageOpts(id)], id);
 }
 
 async function doStop() {
@@ -1798,6 +1833,7 @@ async function checkEnv() {
 }
 checkEnv();
 checkRunning();
+setInterval(checkRunning, 3000);
 loadDashboard();
 loadJobs();
 loadApplied();

@@ -227,7 +227,7 @@ def _run_one_search(
             "results_wanted": results_per_site,
             "hours_old": hours_old,
             "description_format": "markdown",
-            "country_indeed": defaults.get("country_indeed", "india"),
+            "country_indeed": (search_cfg or {}).get("country_indeed") or (search_cfg or {}).get("country") or defaults.get("country_indeed", "india"),
             "verbose": 0,
         }
         if s.get("remote"):

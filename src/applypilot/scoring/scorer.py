@@ -28,10 +28,12 @@ SCORING CRITERIA:
 - 7-8: Strong match. Candidate has most required technical skills and domain strengths, minor gaps easily bridged.
 - 5-6: Moderate match. Candidate has some relevant skills, but missing key core technologies or experience.
 - 3-4: Weak match. Significant skill gaps, or role appears to be a staffing agency, IT consultancy, or client services vendor.
-- 1-2: Poor match. Completely different field, or pure IT services / body shop / subcontracting role.
+- 1-2: Poor match. Completely different field, pure IT services/body shop, OR QA/Testing/SDET/Automation Testing role.
 
 IMPORTANT FACTORS:
-- TARGET ROLES: Candidate ONLY targets top product-based tech companies (Tier 1/Tier 2 like Google, Uber, Stripe, Atlassian) and top product startups (Series B+, unicorns in SaaS, Cloud, DevTools, Fintech, AI/ML, Healthtech, E-commerce, Edtech, Cybersecurity).
+- TARGET ROLES: Candidate ONLY targets Software Development (Backend, Full Stack, Systems, Cloud, AI/ML) and NOT Quality Assurance / Testing / SDET.
+- STRICT REJECTION FOR QA & TESTING: If the role is QA, Software Testing, SDET, Manual Tester, or Automation Test Engineer, assign a score of 1-2. Candidate is a Software Developer, NOT a Tester.
+- TARGET COMPANIES: Candidate targets top product-based tech companies (Tier 1/Tier 2 like Google, Uber, Stripe, Atlassian) and top product startups (Series B+, unicorns in SaaS, Cloud, DevTools, Fintech, AI/ML).
 - HEAVY PENALTY FOR SERVICES / CONSULTING / STAFFING: If the company or job description indicates an IT service firm, consultancy, staffing vendor, C2C, or third-party client project, heavily penalize the score (max 1-3).
 - PRODUCT FOCUS BONUS: Reward jobs building proprietary core products, scalable cloud platforms, modern distributed systems, and real tech engineering.
 - Weight technical skills heavily (programming languages, frameworks, distributed systems, databases, APIs)
@@ -87,7 +89,7 @@ def score_job(resume_text: str, job: dict) -> dict:
     title = job.get("title") or ""
     full_desc = job.get("full_description") or job.get("description") or ""
 
-    # Fast-reject blocked companies, staffing agencies, or excluded titles without wasting LLM tokens
+    # Fast-reject blocked companies, staffing agencies, QA/testing, or excluded titles without wasting LLM tokens
     allowed, block_reason = is_job_allowed(title, company, full_desc)
     if not allowed:
         log.info("Fast-rejecting '%s' at '%s': %s", title, company, block_reason)
@@ -120,15 +122,17 @@ def score_job(resume_text: str, job: dict) -> dict:
         return {"score": 0, "keywords": "", "reasoning": f"LLM error: {e}"}
 
 
-def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
+def run_scoring(limit: int = 0, rescore: bool = False, target_qualified: int = 0, min_score: int = 7) -> dict:
     """Score unscored jobs that have full descriptions.
 
     Args:
         limit: Maximum number of jobs to score in this run.
         rescore: If True, re-score all jobs (not just unscored ones).
+        target_qualified: If > 0, stop once this many jobs score >= min_score.
+        min_score: Minimum score to count toward target_qualified.
 
     Returns:
-        {"scored": int, "errors": int, "elapsed": float, "distribution": list}
+        {"scored": int, "errors": int, "elapsed": float, "distribution": list, "qualified": int}
     """
     resume_text = RESUME_PATH.read_text(encoding="utf-8")
     conn = get_connection()
@@ -143,7 +147,7 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
 
     if not jobs:
         log.info("No unscored jobs with descriptions found.")
-        return {"scored": 0, "errors": 0, "elapsed": 0.0, "distribution": []}
+        return {"scored": 0, "errors": 0, "elapsed": 0.0, "distribution": [], "qualified": 0}
 
     # Convert sqlite3.Row to dicts if needed
     if jobs and not isinstance(jobs[0], dict):
@@ -154,6 +158,7 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
     t0 = time.time()
     completed = 0
     errors = 0
+    qualified_count = 0
     results: list[dict] = []
 
     for job in jobs:
@@ -163,6 +168,8 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
 
         if result["score"] == 0:
             errors += 1
+        elif result["score"] >= min_score:
+            qualified_count += 1
 
         results.append(result)
 
@@ -171,13 +178,25 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
             completed, len(jobs), result["score"], job.get("title", "?")[:60],
         )
 
+        if target_qualified > 0 and qualified_count >= target_qualified:
+            log.info("Reached batch target of %d qualified jobs (score >= %d). Stopping scoring loop.", target_qualified, min_score)
+            break
+
     # Write scores to DB
     now = datetime.now(timezone.utc).isoformat()
     for r in results:
-        conn.execute(
-            "UPDATE jobs SET fit_score = ?, score_reasoning = ?, scored_at = ? WHERE url = ?",
-            (r["score"], f"{r['keywords']}\n{r['reasoning']}", now, r["url"]),
-        )
+        reasoning_text = f"{r['keywords']}\n{r['reasoning']}".strip()
+        if r["score"] == 0 and "LLM error" in r.get("reasoning", ""):
+            # Leave fit_score as NULL for transient LLM errors so subsequent runs automatically retry
+            conn.execute(
+                "UPDATE jobs SET score_reasoning = ? WHERE url = ?",
+                (reasoning_text, r["url"]),
+            )
+        else:
+            conn.execute(
+                "UPDATE jobs SET fit_score = ?, score_reasoning = ?, scored_at = ? WHERE url = ?",
+                (r["score"], reasoning_text, now, r["url"]),
+            )
     conn.commit()
 
     elapsed = time.time() - t0
