@@ -601,7 +601,7 @@ def parse_cover_letter(
         elif not phone.startswith("+"):
             phone = f"+{phone}"
     else:
-        phone = "+917034274990"
+        phone = "+919497034274"
 
     email = personal.get("email") or "sreeragnandan25@gmail.com"
 
