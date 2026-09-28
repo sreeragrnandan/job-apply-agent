@@ -68,53 +68,49 @@ def _build_tailor_prompt(profile: dict) -> str:
     education = profile.get("experience", {})
     education_level = education.get("education_level", "")
 
-    return f"""You are a senior technical recruiter rewriting a resume to get this person an interview.
+    return f"""You are a top-tier principal engineer and executive recruiter tailoring a software engineer's resume to get them an interview for the target role.
 
 Take the base resume and job description. Return a tailored resume as a JSON object.
 
-## RECRUITER SCAN (6 seconds):
-1. Title -- matches what they're hiring?
-2. Summary -- 2 sentences proving you've done this work
-3. First 3 bullets of most recent role -- verbs and outcomes match?
-4. Skills -- must-haves visible immediately?
+## KEY GOAL:
+Tailor the resume to match the target job's keywords and tech stack WITHOUT stripping out technical depth, specific architecture details (e.g. React Query, CDN presigned URLs, signed cookies, JWKS, microservices), or quantified metrics from the original resume. Preserve all key achievements and honors.
 
 ## SKILLS BOUNDARY (real skills only):
 {skills_block}
 
-You MAY add 2-3 closely related tools (Kubernetes if Docker, Terraform if AWS, Redis if PostgreSQL). No unrelated languages/frameworks.
-
 ## TAILORING RULES:
 
-TITLE: Match the target role. Keep seniority (Senior/Lead/Staff). Drop company suffixes and team names.
+TITLE: Match the target role while retaining senior engineering stature (e.g. Senior Software Engineer / Lead Software Engineer).
 
-SUMMARY: Rewrite from scratch. Lead with the 1-2 skills that matter most for THIS role. Sound like someone who's done this job.
+SUMMARY: Preserve the depth, structure, and length of the base resume's summary (3-4 impactful sentences, ~55-75 words). Do NOT copy instruction phrases or meta-commentary:
+- Sentence 1: Start with "Senior Software Engineer with 5+ years designing, building, and operating distributed systems on Kubernetes and AWS/GCP, including secure payment systems, plus full-stack applications (React, Next.js)." Adjust the featured technologies naturally to align with the target job's stack (e.g. Go, Python, distributed microservices).
+- Sentence 2: Emphasize: "Experienced in cloud-native architecture, CI/CD automation, and production reliability, with end-to-end ownership of services from design through long-term operation."
+- Sentence 3: Retain: "Mentors engineers and drives system design across teams."
 
-SKILLS: Reorder each category so the job's must-haves appear first.
+SKILLS: Group skills logically into accurate categories (Languages, Databases, Cloud & Infra, AI & ML, Tools & Frameworks). Put the most job-relevant skills first.
 
-Reframe EVERY bullet for this role. Same real work, different angle. Every bullet must be reworded. Never copy verbatim.
+EXPERIENCE: Keep all impactful bullet points from the base resume. Highlight the tech stack and metrics relevant to the target job, but NEVER dumb down or delete high-impact architectural achievements.
 
-PROJECTS: Reorder by relevance. Drop irrelevant projects entirely.
+PROJECTS: Retain high-impact projects (e.g. O10D LocalAI, AgroSat) with full context and metrics.
 
-BULLETS: Strong verb + what you built + quantified impact. Vary verbs (Built, Designed, Implemented, Reduced, Automated, Deployed, Operated, Optimized). Most relevant first. Max 4 per section.
+HONORS: Retain all honors and awards (e.g. Top 20 ML project from India selected by Google AI, Kerala Reboot Hackathon winner among 300 teams, programming competition prizes).
+
+EDUCATION: Include full degree title, honours, dates (July 2017 – March 2021), CGPA (e.g. 8.8/10), and university name.
 
 ## VOICE:
-- Write like a real engineer. Short, direct.
-- GOOD: "Automated financial reporting with Python + API integrations, cut processing time from 10 hours to 2"
-- BAD: "Leveraged cutting-edge AI technologies to drive transformative operational efficiencies"
-- BANNED WORDS (using ANY of these = validation failure — do not use them even once):
+- Write like a senior engineer. Direct, metric-driven, technical.
+- BANNED WORDS (do NOT use any of these):
   {banned_str}
-- No em dashes. Use commas, periods, or hyphens.
 
 ## HARD RULES:
-- Do NOT invent work, companies, degrees, or certifications
-- Do NOT change real numbers ({metrics_str})
-- Preserved companies: {companies_str} -- names stay as-is
+- Do NOT invent fake companies, degrees, or certifications.
+- Do NOT change real numbers ({metrics_str}).
+- Preserved companies: {companies_str}
 - Preserved school: {school}
-- Must fit 1 page.
 
-## OUTPUT: Return ONLY valid JSON. No markdown fences. No commentary. No "here is" preamble.
+## OUTPUT FORMAT: Return ONLY valid JSON. No markdown fences. No commentary.
 
-{{"title":"Role Title","summary":"2-3 tailored sentences.","skills":{{"Languages":"...","Frameworks":"...","DevOps & Infra":"...","Databases":"...","Tools":"..."}},"experience":[{{"header":"Title at Company","subtitle":"Tech | Dates","bullets":["bullet 1","bullet 2","bullet 3","bullet 4"]}}],"projects":[{{"header":"Project Name - Description","subtitle":"Tech | Dates","bullets":["bullet 1","bullet 2"]}}],"education":"{school} | {education_level}"}}"""
+{{"title":"Senior Software Engineer","summary":"Senior Software Engineer with 5+ years designing, building, and operating distributed systems and cloud infrastructure on Kubernetes and AWS/GCP, tailored to the target role's core technologies. Experienced in cloud-native architecture, CI/CD automation, and production reliability, with end-to-end ownership of services from design through long-term operation. Mentors engineers and drives system design across teams.","skills":{{"Languages":"...","Databases":"...","Cloud & Infra":"...","AI & ML":"...","Tools & Frameworks":"..."}},"experience":[{{"header":"Role Title, Company Name - Location","subtitle":"Dates","bullets":["bullet 1","bullet 2"]}}],"projects":[{{"header":"Project Name - Description","bullets":["bullet 1"]}}],"honors":["Honor 1","Honor 2"],"education":"Bachelor of Technology (Honours) in Computer Science & Engineering\nJuly 2017 – March 2021\nCGPA: 8.8/10, APJ Abdul Kalam Technological University, Kerala, India"}}"""
 
 
 def _build_judge_prompt(profile: dict) -> str:
@@ -288,6 +284,17 @@ def assemble_resume_text(data: dict, profile: dict) -> str:
             lines.append(sanitize_text(entry["subtitle"]))
         for b in entry.get("bullets", []):
             lines.append(f"- {sanitize_text(b)}")
+        lines.append("")
+
+    # Honors
+    if data.get("honors"):
+        lines.append("HONORS")
+        honors_list = data["honors"]
+        if isinstance(honors_list, list):
+            for h in honors_list:
+                lines.append(f"- {sanitize_text(str(h))}")
+        elif isinstance(honors_list, str):
+            lines.append(f"- {sanitize_text(honors_list)}")
         lines.append("")
 
     # Education

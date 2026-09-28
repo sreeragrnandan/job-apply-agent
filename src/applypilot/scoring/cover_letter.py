@@ -37,8 +37,8 @@ def _build_cover_letter_prompt(profile: dict) -> str:
     boundary = profile.get("skills_boundary", {})
     resume_facts = profile.get("resume_facts", {})
 
-    # Preferred name for the sign-off (falls back to full name)
-    sign_off_name = personal.get("preferred_name") or personal.get("full_name", "")
+    # Sign-off name (full name preferred for official cover letter)
+    sign_off_name = personal.get("full_name") or personal.get("preferred_name", "")
 
     # Flatten all allowed skills
     all_skills: list[str] = []
@@ -65,39 +65,32 @@ def _build_cover_letter_prompt(profile: dict) -> str:
     all_banned = ", ".join(f'"{w}"' for w in BANNED_WORDS)
     leak_banned = ", ".join(f'"{p}"' for p in LLM_LEAK_PHRASES)
 
-    return f"""Write a cover letter for {sign_off_name}. The goal is to get an interview.
+    return f"""Write a high-impact engineering cover letter for {sign_off_name} targeting the role.
 
-STRUCTURE: 3 short paragraphs. Under 250 words. Every sentence must earn its place.
+STRUCTURE: 3 crisp, compelling paragraphs (under 250 words total).
 
-PARAGRAPH 1 (2-3 sentences): Open with a specific thing YOU built that solves THEIR problem. Not "I'm excited about this role." Not "This role aligns with my experience." Start with the work.
+PARAGRAPH 1 (2-3 sentences): Lead directly with a standout technical achievement or system you built that solves a core problem for this role (e.g. building O10D LocalAI offline RAG assistant, or scaling cloud infrastructure at Converj cutting costs by 70% and CI/CD time by 80%). Never start with generic filler ("I am writing to express my interest").
 
-PARAGRAPH 2 (3-4 sentences): Pick 2 achievements from the resume that are MOST relevant to THIS job. Use numbers. Frame as solving their problem, not listing your accomplishments.{projects_hint}{metrics_hint}
+PARAGRAPH 2 (3-4 sentences): Highlight 2 concrete, metric-backed accomplishments relevant to this specific job.{projects_hint}{metrics_hint} Mention real impact (e.g., AgroSat satellite deep learning model cutting survey time by 90% and winning 1st prize at Kerala Reboot Hackathon among 300 teams, or Google AI top 20 ML recognition).
 
-PARAGRAPH 3 (1-2 sentences): One specific thing about the company from the job description (a product, a technical challenge, a team structure). Then close. "Happy to walk through any of this in more detail." or "Let's discuss." Nothing else.
+PARAGRAPH 3 (1-2 sentences): Connect your background directly to the company's product, mission, or engineering challenges (e.g., Adobe Firefly/GenStudio AI models or distributed Python/Go microservices). Close cleanly: "Happy to walk through any of this in more detail."
 
-BANNED WORDS AND PHRASES (automated validator rejects ANY of these — do not use even once):
+BANNED WORDS AND PHRASES (do NOT use any of these):
 {all_banned}
 
-ALSO BANNED (meta-commentary the validator catches):
+META-COMMENTARY BANNED:
 {leak_banned}
 
-BANNED PUNCTUATION: No em dashes (—) or en dashes (–). Use commas or periods.
+VOICE & QUALITY:
+- Write like a senior software engineer emailing an engineering director or peer. Direct, authentic, metric-backed.
+- Every sentence must have concrete technical context or a real metric.
+- Do NOT fabricate tools or work outside of: {skills_str}.
 
-VOICE:
-- Write like a real engineer emailing someone they respect. Not formal, not casual. Just direct.
-- NEVER narrate or explain what you're doing. BAD: "This demonstrates my commitment to X." GOOD: Just state the fact and move on.
-- NEVER hedge. BAD: "might address some of your challenges." GOOD: "solves the same problem your team is facing."
-- Every sentence should contain either a number, a tool name, or a specific outcome. If it doesn't, cut it.
-- Read it out loud. If it sounds like a robot wrote it, rewrite it.
+Sign off:
+Yours Faithfully
+{sign_off_name}
 
-FABRICATION = INSTANT REJECTION:
-The candidate's real tools are ONLY: {skills_str}.
-Do NOT mention ANY tool not in this list. If the job asks for tools not listed, talk about the work you did, not the tools.
-
-Sign off: just "{sign_off_name}"
-
-Output ONLY the letter text. No subject lines. No "Here is the cover letter:" preamble. No notes after the sign-off.
-Start DIRECTLY with "Dear Hiring Manager," and end with the name."""
+Output ONLY the letter text starting directly with "Dear Hiring Manager," and ending with "{sign_off_name}"."""
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -248,8 +241,8 @@ def run_cover_letters(min_score: int = 7, limit: int = 20,
             # Generate PDF (best-effort)
             pdf_path = None
             try:
-                from applypilot.scoring.pdf import convert_to_pdf
-                pdf_path = str(convert_to_pdf(cl_path))
+                from applypilot.scoring.pdf import convert_cover_letter_to_pdf
+                pdf_path = str(convert_cover_letter_to_pdf(cl_path, profile=profile))
             except Exception:
                 log.debug("PDF generation failed for %s", cl_path, exc_info=True)
 

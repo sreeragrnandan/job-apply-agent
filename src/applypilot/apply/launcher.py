@@ -212,7 +212,7 @@ def release_lock(url: str) -> None:
 # ---------------------------------------------------------------------------
 
 def gen_prompt(target_url: str, min_score: int = 7,
-               model: str = "haiku", worker_id: int = 0) -> Path | None:
+               model: str = "gemini-2.0-flash", worker_id: int = 0) -> Path | None:
     """Generate a prompt file and print the Claude CLI command for manual debugging.
 
     Returns:
@@ -296,7 +296,7 @@ def reset_failed() -> int:
 # ---------------------------------------------------------------------------
 
 def run_job(job: dict, port: int, worker_id: int = 0,
-            model: str = "haiku", dry_run: bool = False) -> tuple[str, int]:
+            model: str = "gemini-2.0-flash", dry_run: bool = False) -> tuple[str, int]:
     """Spawn a Claude Code session for one job application.
 
     Returns:
@@ -556,7 +556,7 @@ def _is_permanent_failure(result: str) -> bool:
 def worker_loop(worker_id: int = 0, limit: int = 1,
                 target_url: str | None = None,
                 min_score: int = 7, headless: bool = False,
-                model: str = "haiku", dry_run: bool = False) -> tuple[int, int]:
+                model: str = "gemini-2.0-flash", dry_run: bool = False) -> tuple[int, int]:
     """Run jobs sequentially until limit is reached or queue is empty.
 
     Args:
@@ -565,7 +565,7 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
         target_url: Apply to a specific URL.
         min_score: Minimum fit_score threshold.
         headless: Run Chrome headless.
-        model: Claude model name.
+        model: LLM model name (default: gemini-2.0-flash).
         dry_run: Don't click Submit.
 
     Returns:
@@ -659,7 +659,7 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
 # ---------------------------------------------------------------------------
 
 def main(limit: int = 1, target_url: str | None = None,
-         min_score: int = 7, headless: bool = False, model: str = "haiku",
+         min_score: int = 7, headless: bool = False, model: str = "gemini-2.0-flash",
          dry_run: bool = False, continuous: bool = False,
          poll_interval: int = 60, workers: int = 1) -> None:
     """Launch the apply pipeline.

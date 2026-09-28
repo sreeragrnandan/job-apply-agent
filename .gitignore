@@ -47,3 +47,5 @@ Thumbs.db
 applypilot_content/
 applypilot_content.zip
 venv.zip
+*.pdf
+*.txt

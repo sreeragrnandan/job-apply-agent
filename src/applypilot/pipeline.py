@@ -448,7 +448,7 @@ def run_batch_pipeline(
     auto_apply: bool = False,
     workers: int = 1,
     validation_mode: str = "normal",
-    model: str = "haiku",
+    model: str = "gemini-2.0-flash",
     headless: bool = True,
     dry_run: bool = False,
 ) -> dict:
