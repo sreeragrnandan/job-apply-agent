@@ -15,6 +15,7 @@ RESUME_PATH = APP_DIR / "resume.txt"
 RESUME_PDF_PATH = APP_DIR / "resume.pdf"
 SEARCH_CONFIG_PATH = APP_DIR / "searches.yaml"
 ENV_PATH = APP_DIR / ".env"
+LEARNINGS_PATH = APP_DIR / "learnings.json"
 
 # Generated output
 TAILORED_DIR = APP_DIR / "tailored_resumes"
@@ -99,6 +100,37 @@ def load_profile() -> dict:
             f"Profile not found at {PROFILE_PATH}. Run `applypilot init` first."
         )
     return json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+
+
+def load_learnings() -> dict:
+    """Load learned answers and ATS patterns from ~/.applypilot/learnings.json."""
+    import json
+    if not LEARNINGS_PATH.exists():
+        return {}
+    try:
+        return json.loads(LEARNINGS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_learning(category: str, key: str, value) -> None:
+    """Save or update a learned pattern/answer into ~/.applypilot/learnings.json."""
+    import json
+    data = load_learnings()
+    parts = category.split(".")
+    target = data
+    for p in parts:
+        if p not in target or not isinstance(target[p], dict):
+            target[p] = {}
+        target = target[p]
+    if isinstance(target.get(key), dict) and isinstance(value, dict):
+        target[key].update(value)
+    else:
+        target[key] = value
+    try:
+        LEARNINGS_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
 
 
 def load_search_config() -> dict:
@@ -213,7 +245,7 @@ def get_tier() -> int:
 
     Tier 1 (Discovery):            Python + pip
     Tier 2 (AI Scoring & Tailoring): + LLM API key
-    Tier 3 (Full Auto-Apply):       + Claude Code CLI + Chrome
+    Tier 3 (Full Auto-Apply):       + LLM API key + Chrome + Playwright
     """
     load_env()
 
@@ -221,14 +253,13 @@ def get_tier() -> int:
     if not has_llm:
         return 1
 
-    has_claude = shutil.which("claude") is not None
     try:
         get_chrome_path()
         has_chrome = True
     except FileNotFoundError:
         has_chrome = False
 
-    if has_claude and has_chrome:
+    if has_chrome:
         return 3
 
     return 2
@@ -252,8 +283,6 @@ def check_tier(required: int, feature: str) -> None:
     if required >= 2 and not any(os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "LLM_URL")):
         missing.append("LLM API key — run [bold]applypilot init[/bold] or set GEMINI_API_KEY")
     if required >= 3:
-        if not shutil.which("claude"):
-            missing.append("Claude Code CLI — install from [bold]https://claude.ai/code[/bold]")
         try:
             get_chrome_path()
         except FileNotFoundError:

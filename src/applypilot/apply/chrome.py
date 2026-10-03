@@ -248,6 +248,8 @@ def launch_chrome(worker_id: int, port: int | None = None,
     kwargs: dict = dict(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if platform.system() != "Windows":
         kwargs["preexec_fn"] = os.setsid
+    elif not headless:
+        kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
 
     proc = subprocess.Popen(cmd, **kwargs)
     with _chrome_lock:

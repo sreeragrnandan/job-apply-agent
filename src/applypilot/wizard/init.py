@@ -280,25 +280,38 @@ def _setup_ai_features() -> None:
 # ---------------------------------------------------------------------------
 
 def _setup_auto_apply() -> None:
-    """Configure autonomous job application (requires Claude Code CLI)."""
+    """Configure autonomous job application (requires Gemini + Playwright + Chrome)."""
     console.print(Panel(
         "[bold]Step 5: Auto-Apply (optional)[/bold]\n"
         "ApplyPilot can autonomously fill and submit job applications\n"
-        "using Claude Code as the browser agent."
+        "using Gemini as the AI agent with Playwright browser automation."
     ))
 
     if not Confirm.ask("Enable autonomous job applications?", default=True):
         console.print("[dim]You can apply manually using the tailored resumes ApplyPilot generates.[/dim]")
         return
 
-    # Check for Claude Code CLI
-    if shutil.which("claude"):
-        console.print("[green]Claude Code CLI detected.[/green]")
-    else:
+    # Check for Playwright
+    try:
+        import playwright  # noqa: F401
+        console.print("[green]Playwright detected.[/green]")
+    except ImportError:
         console.print(
-            "[yellow]Claude Code CLI not found on PATH.[/yellow]\n"
-            "Install it from: [bold]https://claude.ai/code[/bold]\n"
-            "Auto-apply won't work until Claude Code is installed."
+            "[yellow]Playwright not installed.[/yellow]\n"
+            "Install it with: [bold]pip install playwright && python -m playwright install chromium[/bold]\n"
+            "Auto-apply won't work until Playwright is installed."
+        )
+
+    # Check for Chrome
+    try:
+        from applypilot.config import get_chrome_path
+        chrome_path = get_chrome_path()
+        console.print(f"[green]Chrome detected: {chrome_path}[/green]")
+    except FileNotFoundError:
+        console.print(
+            "[yellow]Chrome/Chromium not found.[/yellow]\n"
+            "Install Chrome or set CHROME_PATH environment variable.\n"
+            "Auto-apply won't work without a Chrome browser."
         )
 
     # Optional: CapSolver for CAPTCHAs
@@ -356,7 +369,7 @@ def run_wizard() -> None:
     _setup_ai_features()
     console.print()
 
-    # Step 5: Auto-apply (Claude Code detection)
+    # Step 5: Auto-apply (Gemini + Playwright detection)
     _setup_auto_apply()
     console.print()
 
@@ -380,7 +393,7 @@ def run_wizard() -> None:
     if tier == 1:
         unlock_hint = "\n[dim]To unlock Tier 2: configure an LLM API key (re-run [bold]applypilot init[/bold]).[/dim]"
     elif tier == 2:
-        unlock_hint = "\n[dim]To unlock Tier 3: install Claude Code CLI + Chrome.[/dim]"
+        unlock_hint = "\n[dim]To unlock Tier 3: install Chrome + Playwright.[/dim]"
 
     console.print(
         Panel.fit(

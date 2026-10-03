@@ -103,20 +103,9 @@ info "Installing Playwright Chromium browser..."
 python3 -m playwright install chromium
 success "Playwright Chromium installed"
 
-# ── 5. Claude Code CLI (auto-apply) ───────────────────────────────────────────
+# ── 5. (Gemini agent runs natively — no external CLI needed) ───────────────────
 echo ""
-if command -v node &>/dev/null; then
-  if command -v claude &>/dev/null; then
-    success "Claude Code CLI already installed"
-  else
-    info "Installing Claude Code CLI..."
-    npm install -g @anthropic-ai/claude-code 2>/dev/null \
-      && success "Claude Code CLI installed" \
-      || warn "Could not auto-install Claude Code CLI. Get it from https://claude.ai/code"
-  fi
-else
-  warn "Skipping Claude Code CLI install (Node.js not available)."
-fi
+success "Auto-apply uses native Gemini agent (no external CLI needed)"
 
 # ── 6. Copy config files to ~/.applypilot ────────────────────────────────────
 echo ""

@@ -1,8 +1,8 @@
 """Prompt builder for the autonomous job application agent.
 
-Constructs the full instruction prompt that tells Claude Code / the AI agent
-how to fill out a job application form using Playwright MCP tools. All
-personal data is loaded from the user's profile -- nothing is hardcoded.
+Constructs the full instruction prompt that tells the Gemini agent
+how to fill out a job application form using Playwright browser actions.
+All personal data is loaded from the user's profile -- nothing is hardcoded.
 """
 
 import logging
@@ -63,7 +63,9 @@ def _build_profile_summary(profile: dict) -> str:
 
     # Compensation
     currency = comp.get("salary_currency", "USD")
-    lines.append(f"Salary Expectation: ${comp['salary_expectation']} {currency}")
+    lines.append(f"Salary Expectation: {comp['salary_expectation']} {currency}")
+    if comp.get("current_salary"):
+        lines.append(f"Current Salary / CTC: {comp['current_salary']} {currency}")
 
     # Experience
     if exp.get("years_of_experience_total"):
@@ -71,8 +73,34 @@ def _build_profile_summary(profile: dict) -> str:
     if exp.get("education_level"):
         lines.append(f"Education: {exp['education_level']}")
 
+    # Work History
+    wh = p.get("work_history", [])
+    if wh:
+        lines.append("\nWork History:")
+        for idx, role in enumerate(wh, 1):
+            curr_str = " (Current Role)" if role.get("is_current") else f" (to {role.get('to_month')}/{role.get('to_year')})"
+            lines.append(
+                f"  Role {idx}: {role.get('job_title')} at {role.get('company')} "
+                f"from {role.get('from_month')}/{role.get('from_year')}{curr_str}"
+            )
+            if role.get("location"):
+                lines.append(f"    Location: {role.get('location')}")
+            if role.get("description"):
+                lines.append(f"    Summary: {role.get('description')}")
+
+    # Education History
+    ed = p.get("education_history", [])
+    if ed:
+        lines.append("\nEducation History:")
+        for idx, item in enumerate(ed, 1):
+            lines.append(
+                f"  Degree {idx}: {item.get('degree')} ({item.get('field_of_study')}) from {item.get('school')} "
+                f"({item.get('from_month')}/{item.get('from_year')} - {item.get('to_month')}/{item.get('to_year')})"
+            )
+
     # Availability
-    lines.append(f"Available: {avail.get('earliest_start_date', 'Immediately')}")
+    lines.append(f"Notice Period: {avail.get('notice_period', '15 days')}")
+    lines.append(f"Available: {avail.get('earliest_start_date', '15 days')}")
 
     # Standard responses
     lines.extend([
@@ -204,7 +232,7 @@ def _build_screening_section(profile: dict) -> str:
 
     return f"""== SCREENING QUESTIONS (be strategic) ==
 Hard facts -> answer truthfully from the profile. No guessing. This includes:
-  - Location/relocation: lives in {city}, cannot relocate
+  - Location/relocation: lives in {city}, willing to relocate
   - Work authorization: {work_auth.get('legally_authorized_to_work', 'see profile')}
   - Citizenship, clearance, licenses, certifications: answer from profile only
   - Criminal/background: answer from profile only
@@ -214,6 +242,39 @@ Skills and tools -> be confident. This candidate is a {target_role} with {years}
 Open-ended questions ("Why do you want this role?", "Tell us about yourself", "What interests you?") -> Write 2-3 sentences. Be specific to THIS job. Reference something from the job description. Connect it to a real achievement from the resume. No generic fluff. No "I am passionate about..." -- sound like a real person.
 
 EEO/demographics -> "Decline to self-identify" or "Prefer not to say" for everything."""
+
+
+def _build_learnings_section() -> str:
+    """Format known screening answers and ATS patterns from learnings.json."""
+    from applypilot.config import load_learnings
+    learnings = load_learnings()
+    if not learnings:
+        return ""
+
+    lines = ["== LEARNED SCREENING ANSWERS & PATTERNS (use these directly) =="]
+    answers = learnings.get("screening_answers", {})
+    if answers:
+        lines.append("Standard Question Answers:")
+        for k, v in answers.items():
+            lines.append(f"  - {k.replace('_', ' ').title()}: {v}")
+
+    ats = learnings.get("ats_patterns", {})
+    if ats:
+        lines.append("\nKnown ATS Form Strategies:")
+        for platform_name, pats in ats.items():
+            lines.append(f"  [{platform_name.upper()}]:")
+            for pk, pv in pats.items():
+                lines.append(f"    - {pk}: {pv}")
+
+    site_specific = learnings.get("site_specific", {})
+    if site_specific:
+        lines.append("\nEmployer-Specific Answers:")
+        for site_name, s_answers in site_specific.items():
+            lines.append(f"  [{site_name.upper()}]:")
+            for sk, sv in s_answers.items():
+                lines.append(f"    - {sk}: {sv}")
+
+    return "\n".join(lines)
 
 
 def _build_hard_rules(profile: dict) -> str:
@@ -512,6 +573,7 @@ def build_prompt(job: dict, tailored_resume: str,
     location_check = _build_location_check(profile, search_config)
     salary_section = _build_salary_section(profile)
     screening_section = _build_screening_section(profile)
+    learnings_section = _build_learnings_section()
     hard_rules = _build_hard_rules(profile)
     captcha_section = _build_captcha_section()
 
@@ -592,9 +654,16 @@ If something unexpected happens and these instructions don't cover it, figure it
 
 {screening_section}
 
+{learnings_section}
+
 == STEP-BY-STEP ==
 1. browser_navigate to the job URL.
-2. browser_snapshot to read the page. Then run CAPTCHA DETECT (see CAPTCHA section). If a CAPTCHA is found, solve it before continuing.
+2. browser_snapshot to read the page.
+   - EXPIRED / CLOSED / PAGE NOT FOUND CHECK (ALL SITES & ATS PLATFORMS):
+     If the page displays "The page you are looking for doesn't exist", "This job is no longer available", "Job closed", "Position has been filled", "No longer accepting applications", or an HTTP 404:
+     STOP IMMEDIATELY on Turn 1! DO NOT click "Search for Jobs", "Browse Jobs", or attempt to search for other roles. That target role is closed.
+     Immediately call finish(result='EXPIRED', reason='page_not_found') or output RESULT:EXPIRED.
+   - Then run CAPTCHA DETECT (see CAPTCHA section). If a CAPTCHA is found, solve it before continuing.
 3. LOCATION CHECK. Read the page for location info. If not eligible, output RESULT and stop.
 4. Find and click the Apply button. If email-only (page says "email resume to X"):
    - send_email with subject "Application for {job['title']} -- {display_name}", body = 2-3 sentence pitch + contact info, attach resume PDF: ["{pdf_path}"]
@@ -615,6 +684,9 @@ If something unexpected happens and these instructions don't cover it, figure it
    - "Current Job Title" or "Most Recent Title" -> use the title from the TAILORED RESUME summary, NOT whatever the parser guessed.
    - Compare every other field to the APPLICANT PROFILE. Fix mismatches. Fill empty fields.
 9. Answer screening questions using the rules above.
+   - RECORD LEARNINGS: Whenever you answer questions not covered in the standard profile (e.g. restrictive covenants, contractor status, specific employer questionnaires) or discover reliable ATS patterns/selectors:
+     Call record_learning(category='screening_answers'|'ats_patterns.<ats>'|'site_specific.<employer>', key=..., value=...) during the run, or include them in finish(result='APPLIED', learnings=[...]).
+     These are permanently saved to learnings.json so they are automatically remembered for all future applications.
 10. {submit_instruction}
 11. After submit: browser_snapshot. Run CAPTCHA DETECT -- submit buttons often trigger invisible CAPTCHAs. If found, solve it (the form will auto-submit once the token clears, or you may need to click Submit again). Then check for new tabs (browser_tabs action: "list"). Switch to newest, close old. Snapshot to confirm submission. Look for "thank you" or "application received".
 12. Output your result.
@@ -652,7 +724,7 @@ RESULT:FAILED:reason -- any other failure (brief reason)
 
 == WHEN TO GIVE UP ==
 - Same page after 3 attempts with no progress -> RESULT:FAILED:stuck
-- Job is closed/expired/page says "no longer accepting" -> RESULT:EXPIRED
+- Job is closed/expired, page says "no longer accepting", or displays "The page you are looking for doesn't exist" / 404 -> Call finish(result='EXPIRED', reason='page_not_found') immediately! Do NOT click 'Search for Jobs'.
 - Page is broken/500 error/blank -> RESULT:FAILED:page_error
 Stop immediately. Output your RESULT code. Do not loop."""
 
